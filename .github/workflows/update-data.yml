@@ -50,9 +50,29 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: python fetch_books.py
       
+      # The Deezer crawl cache (~55 MB, changes every run) lives in the Actions cache, not in git.
+      # restore-keys picks the newest one; if it was evicted the crawl simply rebuilds it (~2 h).
+      - name: Restore Deezer cache
+        uses: actions/cache/restore@v4
+        with:
+          path: cache
+          key: deezer-cache-${{ github.run_id }}
+          restore-keys: deezer-cache-
+      
+      # Music refreshes once a day (the 00:00 UTC run) or on manual runs: music.json is 13 MB and fan counts
+      # move every run, so committing it four times a day would bloat the repo for nothing.
       - name: Fetch Deezer data (music)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        run: python fetch_music.py
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(date -u +%H)" != "00" ]; then echo "not the daily music run"; exit 0; fi
+          python fetch_music.py
+      
+      - name: Save Deezer cache
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/cache/save@v4
+        with:
+          path: cache
+          key: deezer-cache-${{ github.run_id }}
       
       # RAWG's free tier is 20,000 requests a month, so games refresh once a day (the 00:00 UTC run) or on manual runs.
       # Skipped silently until the RAWG_KEY secret exists.
@@ -71,7 +91,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data.json cache/
+          git add data.json
           for f in books.json music.json games.json; do [ -f "$f" ] && git add "$f"; done
           if git diff --staged --quiet; then
             echo "No data changes"

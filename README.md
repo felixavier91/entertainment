@@ -19,7 +19,7 @@ fetch_data.py   (TMDB, needs key)     data.json  (movies + tv_shows)      index.
 fetch_books.py  (Open Library)        books.json (books)                  plots.html   full-text search
 fetch_music.py  (Deezer + Wikipedia)  music.json (albums + EPs)           themes.html  themes + "For me"
 fetch_games.py  (RAWG, needs key)     games.json (video games)
-                                      cache/albums.json, cache/artists.json  (Deezer cache, not read by pages)
+                                      cache/ (Deezer crawl cache: Actions cache, not git)
 refresh_media_themes.py books|music|games   themes_<m>.json (+ labels/centroids/embeddings)
 
 ROG laptop (hourly systemd timer)
@@ -38,7 +38,7 @@ which list is shown; sort, genre, year and keyword filters work the same way for
 | `themes.html` | Themes + "For me" per medium (🎬 Movies & Shows · 📚 Books · 🎵 Music switch at the top). Hash routes: `#books/t=3`, `#music/me`; no prefix = movies |
 | `fetch_data.py` | TMDB fetcher → `data.json` (unchanged) |
 | `fetch_books.py` | Open Library fetcher → `books.json` |
-| `fetch_music.py` | Deezer fetcher → `music.json` + `cache/` |
+| `fetch_music.py` | Deezer fetcher → `music.json` (+ `cache/`, kept in the Actions cache / locally, gitignored) |
 | `fetch_games.py` | RAWG fetcher → `games.json` |
 | `refresh_themes.py`, `refresh_themes.sh`, `cluster.py` | Movie/TV themes (run on the ROG with Ollama) |
 | `refresh_media_themes.py` | Book and music themes (run in Actions with fastembed) |
@@ -110,7 +110,7 @@ Thresholds and the genre mapping are at the top of the script.
 artist's chart genre), label, track titles, track count, duration, explicit flag, cover, preview
 MP3, Deezer link. There are no ratings, so the "Highest Rated" pill is hidden for music. No descriptions either: the card shows the track list.
 
-The first run is slow (≈50k Deezer calls, 1–3 h). Later runs cost ~5–15k calls.
+The first run (or a run after the Actions cache was evicted) is slow (≈50k Deezer calls, 1–3 h). Later runs cost ~5–15k calls.
 
 ---
 
