@@ -1,4 +1,6 @@
-.venv/
-__pycache__/
 embeddings.npy
 embed_ids.json
+fetch.log
+*.log
+__pycache__/
+.venv/

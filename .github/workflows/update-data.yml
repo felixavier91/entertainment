@@ -1,9 +1,8 @@
-name: Update TMDB Data & Deploy
+name: Update Data & Deploy
 
 on:
-  # Run every hour
+  # Every 6 hours
   schedule:
-    # - cron: '0 0 * * *'
     - cron: '0 */6 * * *'
   # Run on ANY push to main branch (including index.html changes)
   push:
@@ -18,9 +17,14 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
 jobs:
   update-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 300
     
     steps:
       - name: Checkout repository
@@ -32,26 +36,53 @@ jobs:
           python-version: '3.11'
       
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests numpy fastembed
+      
+      # The embedding model is ~130 MB; keep it between runs
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: /tmp/fastembed_cache
+          key: fastembed-bge-small-en-v1.5
       
       # Only fetch new data if triggered by schedule or manual dispatch
       # Skip data fetch if triggered by a regular push (like index.html change)
-      - name: Fetch TMDB data
+      - name: Fetch TMDB data (movies & shows)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
           TMDB_TOKEN: ${{ secrets.TMDB_TOKEN }}
         run: python fetch_data.py
+      
+      - name: Fetch Open Library data (books)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: python fetch_books.py
+      
+      - name: Fetch Deezer data (music)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: python fetch_music.py
+      
+      # Movie themes are refreshed on the ROG (refresh_themes.sh, Ollama bge-m3). Books and music are done here.
+      - name: Refresh book & music themes
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          FASTEMBED_CACHE_PATH: /tmp/fastembed_cache
+        run: |
+          python refresh_media_themes.py books
+          python refresh_media_themes.py music
       
       - name: Commit data changes
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data.json
+          git add data.json books.json music.json cache/ \
+            themes_books.json labels_books.json embeddings_books.npy embed_ids_books.json \
+            themes_music.json labels_music.json embeddings_music.npy embed_ids_music.json
           if git diff --staged --quiet; then
-            echo "No changes to data.json"
+            echo "No data changes"
           else
-            git commit -m "🔄 Hourly update: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git commit -m "🔄 Data update: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git pull --rebase --autostash
             git push
           fi
       

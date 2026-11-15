@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plot Search · New Movies & Shows</title>
+    <title>Plot Search · New Movies, Shows, Books & Music</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -63,7 +63,7 @@
             margin-top: 10px;
         }
 
-        .types { display: flex; gap: 6px; }
+        .types { display: flex; gap: 6px; flex-wrap: wrap; }
         .types button {
             padding: 6px 12px;
             background: #1a1a1a;
@@ -105,7 +105,6 @@
             font-size: 13px;
             color: #888;
             margin-left: 6px;
-            white-space: nowrap;
         }
 
         .item p {
@@ -114,6 +113,11 @@
             line-height: 1.55;
             color: #cfcfcf;
             overflow-wrap: anywhere;
+        }
+
+        .item p.tracks {
+            font-size: 13px;
+            color: #999;
         }
 
         mark {
@@ -149,13 +153,15 @@
         <div class="top-inner">
             <div class="row">
                 <a class="back" href="index.html">← Posters</a>
-                <input type="search" id="q" placeholder="Search plots… e.g. heist, time travel, &quot;small town&quot;" autocomplete="off" autofocus>
+                <input type="search" id="q" placeholder="Search plots, blurbs &amp; track lists… e.g. heist, time travel, &quot;small town&quot;" autocomplete="off" autofocus>
             </div>
             <div class="sub">
                 <div class="types" id="types">
                     <button data-type="all" class="on">All</button>
                     <button data-type="movie">Movies</button>
                     <button data-type="tv">Shows</button>
+                    <button data-type="book">Books</button>
+                    <button data-type="music">Music</button>
                 </div>
                 <span id="count">Loading…</span>
             </div>
@@ -169,6 +175,7 @@
 
     <script>
         const PAGE = 100;
+        const KIND = { movie: 'Movie', tv: 'Show', book: 'Book', music: 'Album' };
         let items = [];
         let matches = [];
         let shown = 0;
@@ -181,10 +188,10 @@
         const moreEl = document.getElementById('more');
 
         function esc(s) {
-            return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+            return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         }
 
-        // Words must all appear in the plot; "quoted text" is matched as a phrase.
+        // Words must all appear in the text; "quoted text" is matched as a phrase.
         function parseTerms(q) {
             const out = [];
             const re = /"([^"]+)"|(\S+)/g;
@@ -219,8 +226,10 @@
             const slice = matches.slice(shown, shown + PAGE);
             const html = slice.map(it =>
                 '<div class="item"><h2>' + esc(it.title) +
-                '<span>' + (it.year || '') + ' · ' + (it.type === 'tv' ? 'Show' : 'Movie') + '</span></h2>' +
-                '<p>' + highlight(it.plot) + '</p></div>'
+                '<span>' + (it.year || '') + ' · ' + KIND[it.type] + (it.by ? ' · ' + esc(it.by) : '') + '</span></h2>' +
+                (it.plot ? '<p>' + highlight(it.plot) + '</p>' : '') +
+                (it.tracks ? '<p class="tracks">Tracks: ' + highlight(it.tracks) + '</p>' : '') +
+                '</div>'
             ).join('');
             resultsEl.insertAdjacentHTML('beforeend', html);
             shown += slice.length;
@@ -239,11 +248,11 @@
 
             const total = type === 'all' ? items.length : items.filter(it => it.type === type).length;
             countEl.textContent = terms.length
-                ? matches.length.toLocaleString() + ' of ' + total.toLocaleString() + ' plots match'
-                : total.toLocaleString() + ' plots';
+                ? matches.length.toLocaleString() + ' of ' + total.toLocaleString() + ' match'
+                : total.toLocaleString() + ' titles';
 
             if (!matches.length) {
-                resultsEl.innerHTML = '<div class="msg">No plots mention that. Try fewer or different words.</div>';
+                resultsEl.innerHTML = '<div class="msg">Nothing mentions that. Try fewer or different words.</div>';
                 moreEl.style.display = 'none';
                 return;
             }
@@ -274,33 +283,52 @@
             }
         });
 
+        const getJson = (url, empty) => fetch(url).then(r => r.ok ? r.json() : empty).catch(() => empty);
+
         async function load() {
             try {
-                const response = await fetch('data.json');
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const data = await response.json();
+                const [data, books, music] = await Promise.all([
+                    getJson('data.json', null),
+                    getJson('books.json', { books: [] }),
+                    getJson('music.json', { albums: [] })
+                ]);
+                if (!data) throw new Error('data.json missing');
                 const movies = (data.movies || []).map(m => ({ ...m, type: 'movie', date: m.release_date }));
                 const tv = (data.tv_shows || data.tv || []).map(t => ({ ...t, type: 'tv', date: t.first_air_date }));
-                items = [...movies, ...tv]
+                const screen = [...movies, ...tv]
                     .filter(it => (it.overview || '').trim())
                     .map(it => ({
-                        title: it.title || 'Untitled',
-                        year: it.year || (it.date || '').slice(0, 4),
-                        type: it.type,
-                        date: it.date || '',
-                        plot: it.overview.trim(),
+                        title: it.title || 'Untitled', year: it.year || (it.date || '').slice(0, 4), type: it.type,
+                        date: it.date || '', by: '', plot: it.overview.trim(), tracks: '',
                         low: it.overview.toLowerCase()
-                    }))
-                    .sort((a, b) => b.date.localeCompare(a.date));
+                    }));
+                const bookItems = (books.books || [])
+                    .filter(b => (b.overview || '').trim())
+                    .map(b => ({
+                        title: b.title, year: b.year, type: 'book', date: b.release_date || '', by: 'by ' + b.author,
+                        plot: b.overview.trim(), tracks: '',
+                        low: (b.overview + ' ' + b.author).toLowerCase()
+                    }));
+                // Albums are searchable by their notes and by track names
+                const albumItems = (music.albums || [])
+                    .filter(a => (a.overview || '').trim() || (a.tracks || []).length)
+                    .map(a => ({
+                        title: a.title, year: a.year, type: 'music', date: a.release_date || '', by: a.artist,
+                        plot: (a.overview || '').trim(), tracks: (a.tracks || []).join(' · '),
+                        low: ((a.overview || '') + ' ' + a.artist + ' ' + (a.tracks || []).join(' ')).toLowerCase()
+                    }));
+                items = [...screen, ...bookItems, ...albumItems].sort((a, b) => b.date.localeCompare(a.date));
                 update();
             } catch (error) {
                 countEl.textContent = '';
-                resultsEl.innerHTML = '<div class="msg">Could not load data.json (' + esc(String(error.message)) + ').</div>';
+                resultsEl.innerHTML = '<div class="msg">Could not load the data (' + esc(String(error.message)) + ').</div>';
             }
         }
 
-        // plots.html?q=heist opens with that search already typed in
+        // plots.html?q=heist opens with that search already typed in; plots.html?type=book narrows the medium
         qEl.value = new URLSearchParams(location.search).get('q') || '';
+        const t0 = new URLSearchParams(location.search).get('type');
+        if (t0 && KIND[t0]) { type = t0; document.querySelectorAll('#types button').forEach(b => b.classList.toggle('on', b.dataset.type === t0)); }
 
         load();
     </script>
