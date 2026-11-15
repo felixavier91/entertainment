@@ -1367,7 +1367,8 @@
                     ${item.esrb ? `<p style="margin: 4px 0;"><strong>ESRB:</strong> ${esc(item.esrb)}</p>` : ''}
                     <p style="margin: 8px 0;"><strong>Get it:</strong> ${stores}</p>`;
             } else if (isBook) {
-                const links = [`<a href="https://openlibrary.org/works/${item.id}" target="_blank" rel="noopener" style="color: #9cc4ff;">Open Library</a>`];
+                const amazon = `https://www.amazon.com/s?k=${encodeURIComponent(item.title + ' ' + (item.author || ''))}&i=stripbooks`;
+                const links = [`<a href="${amazon}" target="_blank" rel="noopener" style="color: white; text-decoration: none;">${chip('Amazon Books', '#FF9900')}</a>`];
                 if (item.ia && item.ebook !== 'no_ebook' && item.ebook !== 'printdisabled') links.push(`<a href="https://archive.org/details/${item.ia}" target="_blank" rel="noopener" style="color: #9cc4ff;">${item.ebook === 'public' ? 'Read on archive.org' : 'Borrow on archive.org'}</a>`);
                 details = `
                     <p style="margin: 4px 0;"><strong>Author:</strong> ${esc(item.author)}</p>
