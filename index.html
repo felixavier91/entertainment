@@ -1460,11 +1460,7 @@
         // Where to get / watch / listen, per medium (the platform links)
         function platformLinks(it) {
             const q = encodeURIComponent(it.title + ' ' + (it.author || it.artist || ''));
-            if (it.type === 'book') {
-                const out = [chipLink(`https://www.amazon.com/s?k=${q}&i=stripbooks`, 'Amazon Books', '#FF9900')];
-                if (it.ia && (it.ebook === 'public' || it.ebook === 'borrowable')) out.push(chipLink(`https://archive.org/details/${it.ia}`, it.ebook === 'public' ? 'Read free' : 'Borrow', it.ebook === 'public' ? '#1f7a3a' : '#1d4ed8'));
-                return out;
-            }
+            if (it.type === 'book') return [chipLink(`https://www.amazon.com/s?k=${q}&i=digital-text`, 'Kindle', '#FF9900')];   // Kindle store search
             if (it.type === 'music') return [chipLink(`https://open.spotify.com/search/${q}`, 'Spotify', '#1DB954')];
             if (it.type === 'game') {
                 const steamStore = (it.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
@@ -1482,7 +1478,7 @@
             const hrefs = IS_IOS ? { Brave: `brave://open-url?url=${encodeURIComponent(g)}`, Chrome: `googlechrome://www.google.com/search?q=${q}` }
                 : IS_ANDROID ? { Brave: intent('com.brave.browser'), Chrome: intent('com.android.chrome') }
                 : { Brave: g, Chrome: g };
-            const browser = (name, href) => `<a href="${href}" target="_blank" rel="noopener" title="Google this in ${name}" style="color: #9cc4ff; text-decoration: none; padding: 4px 10px; border: 1px solid #555; border-radius: 12px; font-size: 12px; background: rgba(0,0,0,0.35); white-space: nowrap;">${name}</a>`;
+            const browser = (name, href) => chipLink(href, '🔎 ' + name, name === 'Brave' ? '#fb542b' : '#1a73e8');
             const platform = platformLinks(it);
             return `<div class="link-row" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 10px;">` +
                 platform.join('') + (platform.length ? `<span style="width: 1px; height: 18px; background: rgba(255,255,255,0.25); margin: 0 2px;"></span>` : '') +
