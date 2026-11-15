@@ -116,7 +116,7 @@ The first run is slow (≈50k Deezer calls, 1–3 h). Later runs cost ~5–15k c
 ## 4b. Games (`fetch_games.py` → `games.json`)
 
 **Source:** RAWG API, one query per year from 1990, ordered by `added` (users who put the game in a
-library), paging until the first game under the threshold `100 + 40 × (years old)` adds, at most 10
+library), paging until the first game under the threshold `60 + 40 × (years old)` adds, at most 10
 pages (400 games) per year. DLC/editions are excluded (`exclude_additions`), as are games without
 artwork, unreleased games and "Adults Only" ESRB.
 

@@ -2857,26 +2857,30 @@
             }
         });
         
-        // Year range slider functionality
-        let minYear = 1990;
-        let maxYear = 2026;
+        // Year range: every year back to 1990, then decades and centuries (books go back to antiquity)
+        const EARLIEST = -3000;
+        let minYear = EARLIEST;
+        let maxYear = new Date().getFullYear();
         
         const minYearDropdown = document.getElementById('minYearDropdown');
         const maxYearDropdown = document.getElementById('maxYearDropdown');
         
-        // Populate year dropdowns (current year down to 1990)
         const currentYear = new Date().getFullYear();
-        for (let year = currentYear; year >= 1990; year--) {
+        const yearSteps = [];
+        for (let y = currentYear; y >= 1990; y--) yearSteps.push([y, String(y)]);
+        for (let y = 1980; y >= 1900; y -= 10) yearSteps.push([y, y + 's']);
+        for (const [y, l] of [[1800, '1800s'], [1700, '1700s'], [1600, '1600s'], [1500, '1500s'], [1, 'Year 1+'], [EARLIEST, 'Any year']]) yearSteps.push([y, l]);
+        for (const [y, label] of yearSteps) {
             const minOption = document.createElement('option');
-            minOption.value = year;
-            minOption.textContent = year;
-            if (year === 1990) minOption.selected = true;
+            minOption.value = y;
+            minOption.textContent = label;
+            if (y === EARLIEST) minOption.selected = true;
             minYearDropdown.appendChild(minOption);
             
             const maxOption = document.createElement('option');
-            maxOption.value = year;
-            maxOption.textContent = year;
-            if (year === currentYear) maxOption.selected = true;
+            maxOption.value = y;
+            maxOption.textContent = label;
+            if (y === currentYear) maxOption.selected = true;
             maxYearDropdown.appendChild(maxOption);
         }
         

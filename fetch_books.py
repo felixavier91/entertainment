@@ -14,8 +14,12 @@ import requests
 sys.stdout.reconfigure(line_buffering=True)
 
 # ============= CONFIGURATION =============
-START_YEAR = 1990
+START_YEAR = 1990                # year-by-year queries from here; older books come in by period (CLASSIC_PERIODS)
 CURRENT_YEAR = datetime.now().year
+CLASSIC_MIN_READERS = 200        # flat bar for everything before START_YEAR
+CLASSIC_PERIODS = [(d, d + 9) for d in range(1980, 1899, -10)] + [(1800, 1899), (1700, 1799), (1600, 1699), (1500, 1599), (1, 1499), (-3000, 0)]
+MIN_RATING = 3.0                 # books rated under this are dropped
+MIN_RATINGS = 10                 # and a book needs at least this many ratings (so unrated ones are dropped too)
 UA = 'new-books (github.com/felixavier91/new-books)'
 OL = 'https://openlibrary.org'
 PAGE = 100
@@ -88,7 +92,7 @@ def get(url, **params):
 def pick_date(doc, year):
     """Best full date for the first publication (used for 'Most Recent'); falls back to Jan 1."""
     best = None
-    for s in doc.get('publish_date') or []:
+    for s in (doc.get('publish_date') or []) if year >= 1 else []:
         for fmt in ('%Y-%m-%d', '%B %d, %Y', '%b %d, %Y', '%d %B %Y', '%d %b %Y', '%d/%m/%Y', '%Y-%m', '%B %Y', '%b %Y'):
             try:
                 d = datetime.strptime(s.strip().replace('Sept ', 'Sep '), fmt)
@@ -96,7 +100,8 @@ def pick_date(doc, year):
                 continue
             if d.year == year and (best is None or d < best): best = d
             break
-    return (best or datetime(year, 1, 1)).strftime('%Y-%m-%d')
+    if best: return best.strftime('%Y-%m-%d')
+    return f'{max(year, 1):04d}-01-01'              # ancient works: clamp so they sort last under "Most Recent"
 
 def genres_from(subjects):
     text = ' | '.join(subjects).lower()
@@ -168,6 +173,19 @@ for year in range(START_YEAR, CURRENT_YEAR + 1):
         if page * PAGE >= d.get('numFound', 0) or not d.get('docs'): break
         page += 1
     print(f'  {year}: ≥{thr} readers → {n} books')
+for lo, hi in CLASSIC_PERIODS:
+    q = f'first_publish_year:[{lo} TO {hi}] readinglog_count:[{CLASSIC_MIN_READERS} TO *] language:eng'
+    page, n = 1, 0
+    while True:
+        d = get(f'{OL}/search.json', q=q, sort='readinglog', limit=PAGE, page=page, fields=FIELDS)
+        time.sleep(DELAY)
+        if not d: break
+        for doc in d.get('docs', []):
+            key = doc['key'].rsplit('/', 1)[-1]
+            if key not in docs: docs[key] = doc; n += 1
+        if page * PAGE >= d.get('numFound', 0) or not d.get('docs'): break
+        page += 1
+    print(f'  {lo}–{hi}: ≥{CLASSIC_MIN_READERS} readers → {n} books')
 print(f'\n✅ {len(docs)} works found\n')
 
 # ============= BUILD RECORDS =============
@@ -175,6 +193,7 @@ books, skipped, fetched, wiki = [], 0, 0, 0
 for i, (key, doc) in enumerate(docs.items()):
     subjects = doc.get('subject') or []
     if SKIP_RE.search(' | '.join(subjects)) or not doc.get('title'): skipped += 1; continue
+    if (doc.get('ratings_count') or 0) < MIN_RATINGS or (doc.get('ratings_average') or 0) < MIN_RATING: skipped += 1; continue
     year = doc.get('first_publish_year') or 0
     prev = old.get(key)
     desc = (prev or {}).get('overview')

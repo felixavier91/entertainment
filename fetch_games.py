@@ -29,8 +29,8 @@ DELAY = 0.25
 
 def min_added_for_year(year):
     """Library adds a game needs to be listed. Newer games need fewer.
-    2026: 100 · 2025: 140 · 2020: 340 · 2010: 740 · 2000: 1,140 · 1990: 1,540"""
-    return 100 + 40 * (CURRENT_YEAR - year)
+    2026: 60 · 2025: 100 · 2020: 300 · 2010: 700 · 2000: 1,100 · 1990: 1,500"""
+    return 60 + 40 * (CURRENT_YEAR - year)
 
 FAMILY = [('nintendo', r'nintendo|wii|switch|game boy|gamecube|nes|ds\b'), ('playstation', r'playstation|ps vita|psp'),
           ('xbox', r'xbox'), ('pc', r'^pc$|macos|linux|web')]
