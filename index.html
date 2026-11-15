@@ -1,10 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>
-        // "Description-only" switch left on → open the text view straight away (no poster flash)
-        try { if (localStorage.getItem('descOnly') === '1' && !location.search.includes('posters')) location.replace('plots.html'); } catch (e) {}
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Movies, Shows, Books & Music</title>
@@ -737,11 +733,26 @@
             text-align: center;
         }
         
-        #genreFilter option {
+        #genreFilter option, #themeFilter option {
             background: #2a2a2a;
             color: white;
             padding: 10px;
         }
+        #themeFilter { color: white !important; font-weight: 600; text-align: center; }
+        
+        /* Description-only list */
+        .desc-item { padding: 14px 0; border-bottom: 1px solid #222; color: #e6e6e6; }
+        .desc-item h2 { font-size: 16px; font-weight: 600; color: #fff; line-height: 1.3; }
+        .desc-item h2 span { font-weight: normal; font-size: 13px; color: #888; margin-left: 6px; }
+        .desc-item .why { font-size: 12.5px; color: #7ddc8a; margin-top: 3px; }
+        .desc-item p { margin-top: 5px; font-size: 15px; line-height: 1.55; color: #cfcfcf; overflow-wrap: anywhere; }
+        .desc-item p.tracks { font-size: 13px; color: #999; }
+        .desc-item mark { background: #ffd54a; color: #000; border-radius: 2px; padding: 0 1px; }
+        .taste { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        .taste button { padding: 6px 10px; font-size: 12px; background: #1a1a1a; color: #bbb; border: 1px solid #555; border-radius: 5px; }
+        .taste button.up.on { background: #1f6f33; border-color: #2f9e4a; color: #fff; }
+        .taste button.down.on { background: #7a2323; border-color: #b33; color: #fff; }
+        .card-overlay .taste button { text-shadow: none; }
         
         /* Dual-range year slider styling */
         input[type="range"] {
@@ -871,10 +882,13 @@
                     </div>
                 </div>
                 
-                <!-- Row 3: Genre dropdown -->
-                <div class="filter-row-genre" style="margin-bottom: 15px; display: flex; justify-content: center;">
+                <!-- Row 3: Genre + Theme dropdowns -->
+                <div class="filter-row-genre" style="margin-bottom: 15px; display: flex; justify-content: center; gap: 8px;">
                     <select id="genreFilter" style="max-width: 150px; padding: 8px 12px; background: #2a2a2a; color: #ffffff; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; outline: none;">
                         <option value="" style="background: #2a2a2a; color: #ffffff;">🎭 All Genres</option>
+                    </select>
+                    <select id="themeFilter" title="Themes: every description was read and grouped by what it is about" style="max-width: 190px; padding: 8px 12px; background: #2a2a2a; color: #ffffff; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; outline: none;">
+                        <option value="" style="background: #2a2a2a; color: #ffffff;">🧭 All Themes</option>
                     </select>
                 </div>
                 
@@ -893,7 +907,7 @@
                 <div class="filter-row-keywords" style="margin-bottom: 15px;">
                     <input type="text" id="searchFilter" placeholder="Filter by keywords..." style="width: 100%; padding: 8px; border: 2px solid #555; background: #2a2a2a; color: white; border-radius: 5px; font-size: 13px;">
                     <p id="itemCount" style="margin-top: 8px; margin-bottom: 0; color: #999; font-size: 11px;">No items loaded</p>
-                    <a href="themes.html" style="display: inline-block; margin-top: 8px; color: #cccccc; font-size: 13px;">🧭 Themes &amp; picks for me →</a>
+
                 </div>
                 
             </div>
@@ -1365,9 +1379,160 @@
                     <div class="card-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s; overflow-y: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;">
                         <h3 style="margin: 0 0 12px 0; color: white; font-size: 18px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">${esc(item.title)}</h3>
                         <p style="margin: 0 0 12px 0; color: #fff; line-height: 1.5; font-size: 13px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${esc(item.overview) || (isBook || isGame ? 'No description available.' : 'No notes on this one yet.')}</p>
-                        <div style="color: #fff; font-size: 13px; line-height: 1.8; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${details}</div>
+                        <div style="color: #fff; font-size: 13px; line-height: 1.8; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${details}${tasteButtons(item)}</div>
                     </div>
                 </div>`;
+        }
+        
+        // ---- Themes: one file per embedding space (movies+tv share themes.json), loaded on demand ----
+        const THEME_FILE = { movies: 'themes.json', tv: 'themes.json', books: 'themes_books.json', music: 'themes_music.json', games: 'themes_games.json' };
+        const themeSpaces = {};            // file → { themes, rowOf, themeOf, vec, dim } or null when missing
+        const itemKey = it => it.type + ':' + it.id;
+        async function loadThemes(file) {
+            if (file in themeSpaces) return themeSpaces[file];
+            themeSpaces[file] = null;
+            try {
+                const r = await fetch(file);
+                if (!r.ok) return null;
+                const th = await r.json();
+                const raw = atob(th.vec), n = th.ids.length, d = th.dim;
+                const vec = new Float32Array(n * d);
+                for (let row = 0; row < n; row++) {
+                    let norm = 0;
+                    for (let i = 0; i < d; i++) { let x = raw.charCodeAt(row * d + i); if (x > 127) x -= 256; vec[row * d + i] = x; norm += x * x; }
+                    norm = Math.sqrt(norm) || 1;
+                    for (let i = 0; i < d; i++) vec[row * d + i] /= norm;
+                }
+                const rowOf = {};
+                th.ids.forEach((k, row) => { rowOf[k] = row; });
+                themeSpaces[file] = { themes: th.themes, rowOf, themeOf: th.theme, vec, dim: d };
+            } catch (e) { console.log('themes unavailable for', file, e); }
+            return themeSpaces[file];
+        }
+        const curSpace = () => themeSpaces[THEME_FILE[currentContentType]] || null;
+        const themeOfItem = (sp, it) => { if (!sp) return -1; const row = sp.rowOf[itemKey(it)]; return row === undefined ? -1 : sp.themeOf[row]; };
+        function sim(sp, a, b) {
+            let s = 0; const x = a * sp.dim, y = b * sp.dim;
+            for (let i = 0; i < sp.dim; i++) s += sp.vec[x + i] * sp.vec[y + i];
+            return s;
+        }
+        
+        // ---- taste: 👍/👎, kept in this browser only; same keys as themes.html ----
+        let taste = {};
+        try { taste = JSON.parse(localStorage.getItem('taste') || '{}'); } catch (e) {}
+        const saveTaste = () => { try { localStorage.setItem('taste', JSON.stringify(taste)); } catch (e) {} };
+        const tasteButtons = it => {
+            const k = itemKey(it), t = taste[k] || 0;
+            return `<div class="taste" data-key="${k}"><button class="up${t === 1 ? ' on' : ''}" data-rate="1">👍 Liked it</button><button class="down${t === -1 ? ' on' : ''}" data-rate="-1">👎 Not for me</button></div>`;
+        };
+        document.addEventListener('click', e => {
+            const b = e.target.closest('.taste button');
+            if (!b) return;
+            e.stopPropagation(); e.preventDefault();
+            const k = b.parentElement.dataset.key, r = +b.dataset.rate;
+            if (taste[k] === r) delete taste[k]; else taste[k] = r;
+            saveTaste();
+            document.querySelectorAll(`.taste[data-key="${k}"]`).forEach(box => {
+                box.querySelector('.up').classList.toggle('on', taste[k] === 1);
+                box.querySelector('.down').classList.toggle('on', taste[k] === -1);
+            });
+            populateThemeDropdown();      // the "Picks for me" option appears/updates
+        }, true);
+        
+        // "Picks for me": closest to the 3 liked titles nearest to each candidate, pushed away from 👎 ones
+        let whyFor = {};
+        function picksForMe(items) {
+            const sp = curSpace(); if (!sp) return items;
+            const row = it => sp.rowOf[itemKey(it)];
+            const likes = items.filter(it => taste[itemKey(it)] === 1 && row(it) !== undefined);
+            const nos = items.filter(it => taste[itemKey(it)] === -1 && row(it) !== undefined);
+            whyFor = {};
+            if (!likes.length) return [];
+            return items.filter(it => !taste[itemKey(it)] && row(it) !== undefined).map(it => {
+                const s = likes.map(l => [sim(sp, row(l), row(it)), l]).sort((a, b) => b[0] - a[0]);
+                const top = s.slice(0, 3);
+                let score = top.reduce((a, x) => a + x[0], 0) / top.length;
+                let worst = 0;
+                for (const n of nos) worst = Math.max(worst, sim(sp, row(n), row(it)));
+                score -= 0.5 * worst;
+                whyFor[itemKey(it)] = s[0][1].title;
+                return [score, it];
+            }).sort((a, b) => b[0] - a[0]).slice(0, 150).map(x => x[1]);
+        }
+        
+        let selectedTheme = '';           // '' | theme index (string) | 'forme'
+        async function populateThemeDropdown() {
+            const sel = document.getElementById('themeFilter');
+            if (!rawJsonData) return;
+            const had = THEME_FILE[currentContentType] in themeSpaces;
+            const sp = await loadThemes(THEME_FILE[currentContentType]);
+            if (!had && sp) applyFiltersAndDisplay();          // first load of this space: show theme names on the items
+            const items = rawJsonData[currentContentType] || [];
+            const typeOf = { movies: 'movie', tv: 'tv', books: 'book', music: 'music', games: 'game' }[currentContentType];
+            const counts = {}; let liked = 0;
+            if (sp) for (const raw of items) {
+                const it = { type: typeOf, id: raw.id };
+                const t = themeOfItem(sp, it);
+                if (t >= 0) counts[t] = (counts[t] || 0) + 1;
+                if (taste[itemKey(it)] === 1 && t >= 0) liked++;
+            }
+            const prev = sel.value;
+            sel.innerHTML = '<option value="">🧭 All Themes</option>';
+            if (liked) sel.insertAdjacentHTML('beforeend', `<option value="forme">✨ Picks for me (${liked} 👍)</option>`);
+            if (sp) Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([t, n]) => {
+                sel.insertAdjacentHTML('beforeend', `<option value="${t}">${esc(sp.themes[t])} (${n})</option>`);
+            });
+            sel.style.display = sp ? '' : 'none';
+            sel.value = [...sel.options].some(o => o.value === prev) ? prev : '';
+            if (sel.value !== selectedTheme) { selectedTheme = sel.value; applyFiltersAndDisplay(); }
+        }
+        document.getElementById('themeFilter').addEventListener('change', function() {
+            selectedTheme = this.value;
+            applyFiltersAndDisplay();
+        });
+        
+        // ---- Description-only list: same items, same order, text instead of posters ----
+        const DESC_PAGE = 150;
+        let descList = [], descShown = 0;
+        const KIND = { movie: '🎬 Movie', tv: '📺 Show', book: '📚 Book', music: '🎵 Album', game: '🎮 Game' };
+        function highlight(text, term) {
+            text = esc(text || '');
+            if (!term) return text;
+            const words = term.split(/\s+/).filter(w => w.length > 1).sort((a, b) => b.length - a.length).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            if (!words.length) return text;
+            return text.replace(new RegExp('(' + words.join('|') + ')', 'gi'), '<mark>$1</mark>');
+        }
+        function descItemHtml(it) {
+            const term = document.getElementById('searchFilter').value.toLowerCase().trim();
+            const by = it.type === 'book' ? 'by ' + it.author : it.type === 'music' ? it.artist : it.type === 'game' ? (it.developer || it.platforms || '') : (it.director || '');
+            const score = it.type === 'music' ? (it.x ? '❤️ ' + (it.x >= 1000 ? Math.round(it.x / 1000) + 'k' : it.x) : '')
+                        : it.type === 'book' ? (it.y ? '★ ' + it.y.toFixed(1) : '')
+                        : it.type === 'game' ? (it.metacritic ? 'MC ' + it.metacritic : (it.rating ? '★ ' + it.rating.toFixed(1) : ''))
+                        : (it.y ? '★ ' + it.y.toFixed(1) : '');
+            const why = whyFor[itemKey(it)];
+            const sp = curSpace(); const t = themeOfItem(sp, it);
+            return `<div class="desc-item"><h2>${esc(it.title)}<span>${it.year || ''} · ${KIND[it.type]}${by ? ' · ' + esc(by) : ''}${score ? ' · ' + score : ''}${t >= 0 ? ' · ' + esc(sp.themes[t]) : ''}</span></h2>` +
+                (why ? `<div class="why">Because you liked ${esc(why)}</div>` : '') +
+                (it.overview ? `<p>${highlight(it.overview, term)}</p>` : '') +
+                (it.tracks && it.tracks.length ? `<p class="tracks">Tracks: ${highlight(it.tracks.join(' · '), term)}</p>` : '') +
+                tasteButtons(it) + '</div>';
+        }
+        function renderDescMore() {
+            const container = document.getElementById('cardsContainer');
+            const slice = descList.slice(descShown, descShown + DESC_PAGE);
+            container.insertAdjacentHTML('beforeend', slice.map(descItemHtml).join(''));
+            descShown += slice.length;
+        }
+        window.addEventListener('scroll', () => {
+            if (descOnly && descShown < descList.length && window.innerHeight + window.scrollY >= document.body.offsetHeight - 800) renderDescMore();
+        });
+        function renderDescriptions(items) {
+            const container = document.getElementById('cardsContainer');
+            container.style.display = 'block';
+            container.innerHTML = '';
+            descList = items; descShown = 0;
+            if (!items.length) { container.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">No items match your filters</p>'; return; }
+            renderDescMore();
         }
         
         function displayCards(data) {
@@ -1439,6 +1604,11 @@
                     return b.x - a.x;
                 });
             }
+            
+            if (selectedTheme === 'forme') allItems = picksForMe(allItems); else whyFor = {};
+            
+            if (descOnly) return renderDescriptions(allItems);
+            container.style.display = 'grid';
             
             if (allItems.length === 0) {
                 container.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">No items match your filters</p>';
@@ -1622,6 +1792,7 @@
                                 ${statusHTML}
                                 <p style="margin: 4px 0;"><strong>Cast:</strong> ${item.actors || 'N/A'}</p>
                                 ${streamingHTML}
+                                ${tasteButtons(item)}
                             </div>
                         </div>
                     </div>
@@ -1636,7 +1807,7 @@
                 // Click/tap to toggle overlay
                 card.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (e.target.closest('.preview-btn') || e.target.closest('a')) return;
+                    if (e.target.closest('.preview-btn') || e.target.closest('a') || e.target.closest('.taste')) return;
                     
                     if (isOverlayVisible) {
                         overlay.style.opacity = '0';
@@ -1930,12 +2101,19 @@
             }
         });
 
-        // Description-only switch: on → text view (plots.html) for the current medium
-        const PLOT_TYPE = { movies: 'movie', tv: 'tv', books: 'book', music: 'music', games: 'game' };
-        document.getElementById('descSwitch').addEventListener('click', () => {
-            try { localStorage.setItem('descOnly', '1'); } catch (e) {}
-            document.getElementById('descSwitch').classList.add('on');
-            location.href = 'plots.html?type=' + PLOT_TYPE[currentContentType];
+        // Description-only switch: the left panel stays, the right side becomes a list of descriptions
+        let descOnly = false;
+        try { descOnly = localStorage.getItem('descOnly') === '1'; } catch (e) {}
+        if (new URLSearchParams(location.search).has('desc')) descOnly = true;     // index.html?desc shares the text view
+        const descSwitch = document.getElementById('descSwitch');
+        descSwitch.classList.toggle('on', descOnly);
+        descSwitch.setAttribute('aria-checked', descOnly);
+        descSwitch.addEventListener('click', () => {
+            descOnly = !descOnly;
+            try { localStorage.setItem('descOnly', descOnly ? '1' : '0'); } catch (e) {}
+            descSwitch.classList.toggle('on', descOnly);
+            descSwitch.setAttribute('aria-checked', descOnly);
+            applyFiltersAndDisplay();
         });
         
         // Coming back from the text view: index.html?posters&type=books reopens that pill
@@ -1979,6 +2157,7 @@
                     
                     // Apply filters and display
                     applyFiltersAndDisplay();
+                    populateThemeDropdown();
                 } else {
                     throw new Error('File not found');
                 }
@@ -2496,6 +2675,16 @@
                 };
             }
             
+            // Filter by theme (a number = that theme; 'forme' is ranked later in displayCards)
+            if (selectedTheme !== '' && selectedTheme !== 'forme') {
+                const sp = curSpace(), want = +selectedTheme;
+                const inTheme = it => themeOfItem(sp, it) === want;
+                displayData = {
+                    movies: displayData.movies.filter(inTheme), tv: displayData.tv.filter(inTheme),
+                    books: displayData.books.filter(inTheme), music: displayData.music.filter(inTheme), games: displayData.games.filter(inTheme)
+                };
+            }
+            
             // Filter by content type (movies, tv, books or music)
             displayData = {
                 movies: currentContentType === 'movies' ? displayData.movies : [],
@@ -2581,6 +2770,7 @@
                 
                 // Re-display with new content type filter
                 applyFiltersAndDisplay();
+                populateThemeDropdown();
             });
         });
         
