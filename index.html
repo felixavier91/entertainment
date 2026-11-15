@@ -1351,10 +1351,6 @@
             let details;
             if (isGame) {
                 // Steam first: RAWG's exact store page when it has one, otherwise a Steam search for the title
-                const steamStore = (item.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
-                const steamUrl = steamStore ? steamStore.url : `https://store.steampowered.com/search/?term=${encodeURIComponent(item.title)}`;
-                const steamChip = `<a href="${esc(steamUrl)}" target="_blank" rel="noopener" style="color: white; text-decoration: none;">${chip(steamStore ? 'Steam' : 'Steam search', '#1b2838')}</a>`;
-                const stores = [steamChip].concat((item.stores || []).filter(st => st !== steamStore).map(st => `<a href="${esc(st.url)}" target="_blank" rel="noopener" style="color: #9cc4ff;">${esc(st.name)}</a>`)).join(' · ');
                 details = `
                     <p style="margin: 4px 0;"><strong>Developer:</strong> ${esc(item.developer || 'N/A')}${item.publisher ? ' · ' + esc(item.publisher) : ''}</p>
                     <p style="margin: 4px 0;"><strong>Released:</strong> ${fmtDate(item.releaseDate)}</p>
@@ -1364,12 +1360,8 @@
                     <p style="margin: 4px 0;"><strong>Players:</strong> 👥 ${item.x ? item.x.toLocaleString() : 'N/A'} on RAWG</p>
                     <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}</p>
                     ${item.playtime ? `<p style="margin: 4px 0;"><strong>Average Playtime:</strong> ${item.playtime} h</p>` : ''}
-                    ${item.esrb ? `<p style="margin: 4px 0;"><strong>ESRB:</strong> ${esc(item.esrb)}</p>` : ''}
-                    <p style="margin: 8px 0;"><strong>Get it:</strong> ${stores}</p>`;
+                    ${item.esrb ? `<p style="margin: 4px 0;"><strong>ESRB:</strong> ${esc(item.esrb)}</p>` : ''}`;
             } else if (isBook) {
-                const amazon = `https://www.amazon.com/s?k=${encodeURIComponent(item.title + ' ' + (item.author || ''))}&i=stripbooks`;
-                const links = [`<a href="${amazon}" target="_blank" rel="noopener" style="color: white; text-decoration: none;">${chip('Amazon Books', '#FF9900')}</a>`];
-                if (item.ia && item.ebook !== 'no_ebook' && item.ebook !== 'printdisabled') links.push(`<a href="https://archive.org/details/${item.ia}" target="_blank" rel="noopener" style="color: #9cc4ff;">${item.ebook === 'public' ? 'Read on archive.org' : 'Borrow on archive.org'}</a>`);
                 details = `
                     <p style="margin: 4px 0;"><strong>Author:</strong> ${esc(item.author)}</p>
                     <p style="margin: 4px 0;"><strong>First Published:</strong> ${item.year || 'N/A'}</p>
@@ -1377,11 +1369,9 @@
                     <p style="margin: 4px 0;"><strong>Rating:</strong> ${item.y ? `⭐ ${item.y.toFixed(1)}/5 (${item.ratings_count} ratings)` : 'N/A'}</p>
                     <p style="margin: 4px 0;"><strong>Readers:</strong> 👥 ${item.x ? item.x.toLocaleString() : 'N/A'} on Open Library</p>
                     <p style="margin: 4px 0;"><strong>Pages:</strong> ${item.pages || 'N/A'}</p>
-                    <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}</p>
-                    <p style="margin: 8px 0;"><strong>Read it:</strong> ${links.join(' · ')}</p>`;
+                    <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}</p>`;
             } else {
                 const tracks = (item.tracks || []).slice(0, 12).map((t, i) => `${i + 1}. ${esc(t)}`).join('<br>') + ((item.tracks || []).length > 12 ? `<br>… ${item.tracks.length - 12} more` : '');
-                const spotify = `https://open.spotify.com/search/${encodeURIComponent(item.artist + ' ' + item.title)}`;
                 details = `
                     <p style="margin: 4px 0;"><strong>Artist:</strong> ${esc(item.artist)}</p>
                     <p style="margin: 4px 0;"><strong>Released:</strong> ${fmtDate(item.releaseDate)}</p>
@@ -1390,7 +1380,6 @@
                     <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}${item.subgenres && item.subgenres.length ? ' · ' + esc(item.subgenres.join(', ')) : ''}</p>
                     <p style="margin: 4px 0;"><strong>Label:</strong> ${esc(item.label || 'N/A')}</p>
                     <p style="margin: 4px 0;"><strong>Length:</strong> ${item.nb_tracks || '?'} tracks${item.duration ? ' · ' + fmtDuration(item.duration) : ''}</p>
-                    <p style="margin: 8px 0;"><strong>Listen:</strong> <a href="${spotify}" target="_blank" rel="noopener" style="color: white; text-decoration: none;">${chip('Spotify', '#1DB954')}</a></p>
                     <p style="margin: 8px 0 0; font-size: 12px; color: #ddd;"><strong>Tracks:</strong><br>${tracks}</p>`;
             }
             
@@ -1412,9 +1401,10 @@
                     ${caption}
                     ${badgeHTML}
                     <div class="card-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s; overflow-y: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;">
+                        ${linkRow(item)}
                         <h3 style="margin: 0 0 12px 0; color: white; font-size: 18px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">${esc(item.title)}</h3>
                         <p style="margin: 0 0 12px 0; color: #fff; line-height: 1.5; font-size: 13px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${esc(item.overview) || (isBook || isGame ? 'No description available.' : '')}</p>
-                        <div style="color: #fff; font-size: 13px; line-height: 1.8; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${details}${tasteButtons(item)}${searchLinks(item)}</div>
+                        <div style="color: #fff; font-size: 13px; line-height: 1.8; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${details}${tasteButtons(item)}</div>
                     </div>
                 </div>`;
         }
@@ -1466,7 +1456,25 @@
         const UA = navigator.userAgent;
         const IS_IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const IS_ANDROID = /Android/.test(UA);
-        function searchLinks(it) {
+        const chipLink = (href, label, color) => `<a href="${href}" target="_blank" rel="noopener" style="background: ${color}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap;">${label}</a>`;
+        // Where to get / watch / listen, per medium (the platform links)
+        function platformLinks(it) {
+            const q = encodeURIComponent(it.title + ' ' + (it.author || it.artist || ''));
+            if (it.type === 'book') {
+                const out = [chipLink(`https://www.amazon.com/s?k=${q}&i=stripbooks`, 'Amazon Books', '#FF9900')];
+                if (it.ia && (it.ebook === 'public' || it.ebook === 'borrowable')) out.push(chipLink(`https://archive.org/details/${it.ia}`, it.ebook === 'public' ? 'Read free' : 'Borrow', it.ebook === 'public' ? '#1f7a3a' : '#1d4ed8'));
+                return out;
+            }
+            if (it.type === 'music') return [chipLink(`https://open.spotify.com/search/${q}`, 'Spotify', '#1DB954')];
+            if (it.type === 'game') {
+                const steamStore = (it.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
+                const out = [chipLink(steamStore ? steamStore.url : `https://store.steampowered.com/search/?term=${encodeURIComponent(it.title)}`, 'Steam', '#1b2838')];
+                (it.stores || []).filter(st => st !== steamStore && st.url).slice(0, 3).forEach(st => out.push(chipLink(st.url, st.name, '#444')));
+                return out;
+            }
+            return [chipLink(`https://www.justwatch.com/us/search?q=${encodeURIComponent(it.title)}`, 'JustWatch', '#c9a227')];
+        }
+        function linkRow(it) {
             const who = it.type === 'book' ? it.author : it.type === 'music' ? it.artist : '';
             const q = encodeURIComponent(`${it.title} ${who || ''} ${it.year || ''} ${SEARCH_HINT[it.type] || ''}`.replace(/\s+/g, ' ').trim());
             const g = `https://www.google.com/search?q=${q}`;
@@ -1474,9 +1482,10 @@
             const hrefs = IS_IOS ? { Brave: `brave://open-url?url=${encodeURIComponent(g)}`, Chrome: `googlechrome://www.google.com/search?q=${q}`, Edge: `microsoft-edge-https://www.google.com/search?q=${q}`, Safari: g }
                 : IS_ANDROID ? { Brave: intent('com.brave.browser'), Chrome: intent('com.android.chrome'), Edge: intent('com.microsoft.emmx'), Safari: g }
                 : { Brave: g, Chrome: g, Edge: g, Safari: g };
-            const chip = (name, href) => `<a href="${href}" target="_blank" rel="noopener" title="Google this in ${name}" style="color: #9cc4ff; text-decoration: none; padding: 4px 10px; border: 1px solid #555; border-radius: 12px; font-size: 12px; background: rgba(0,0,0,0.35);">${name}</a>`;
-            return `<div class="search-links" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.15);">` +
-                ['Brave', 'Chrome', 'Edge', 'Safari'].map(n => chip(n, hrefs[n])).join('') + '</div>';
+            const browser = (name, href) => `<a href="${href}" target="_blank" rel="noopener" title="Google this in ${name}" style="color: #9cc4ff; text-decoration: none; padding: 4px 10px; border: 1px solid #555; border-radius: 12px; font-size: 12px; background: rgba(0,0,0,0.35); white-space: nowrap;">${name}</a>`;
+            return `<div class="link-row" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 10px;">` +
+                platformLinks(it).join('') + `<span style="width: 1px; height: 18px; background: rgba(255,255,255,0.25); margin: 0 2px;"></span>` +
+                ['Brave', 'Chrome', 'Edge', 'Safari'].map(n => browser(n, hrefs[n])).join('') + '</div>';
         }
         
         document.addEventListener('click', e => {
@@ -1588,9 +1597,10 @@
             const tail = it.type === 'music' ? (it.subgenres && it.subgenres.length ? ' · ' + esc(it.subgenres.slice(0, 3).join(', ')) : '') : (t >= 0 ? ' · ' + esc(sp.themes[t]) : '');
             return `<div class="desc-item"><h2>${esc(it.title)}<span>${it.year || ''} · ${KIND[it.type]}${by ? ' · ' + esc(by) : ''}${score ? ' · ' + score : ''}${tail}</span></h2>` +
                 (why ? `<div class="why">Because you liked ${esc(why)}</div>` : '') +
+                `<div style="margin-top: 8px;">${linkRow(it)}</div>` +
                 (it.overview ? `<p>${highlight(it.overview, term)}</p>` : '') +
                 (it.tracks && it.tracks.length ? `<p class="tracks">Tracks: ${highlight(it.tracks.join(' · '), term)}</p>` : '') +
-                tasteButtons(it) + searchLinks(it) + '</div>';
+                tasteButtons(it) + '</div>';
         }
         function renderDescMore() {
             const container = document.getElementById('cardsContainer');
@@ -1855,6 +1865,7 @@
                             justify-content: flex-start;
                             pointer-events: none;
                         ">
+                            ${linkRow(item)}
                             <h3 style="margin: 0 0 12px 0; color: white; font-size: 18px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">${item.title}</h3>
                             <p style="margin: 0 0 12px 0; color: #fff; line-height: 1.5; font-size: 13px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${item.overview || 'No overview available.'}</p>
                             
@@ -1868,7 +1879,6 @@
                                 <p style="margin: 4px 0;"><strong>Cast:</strong> ${item.actors || 'N/A'}</p>
                                 ${streamingHTML}
                                 ${tasteButtons(item)}
-                                ${searchLinks(item)}
                             </div>
                         </div>
                     </div>
