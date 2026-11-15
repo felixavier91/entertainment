@@ -1461,7 +1461,8 @@
         function platformLinks(it) {
             const q = encodeURIComponent(it.title + ' ' + (it.author || it.artist || ''));
             if (it.type === 'book') return [chipLink(`https://www.amazon.com/s?k=${q}&i=digital-text`, 'Kindle', '#FF9900')];   // Kindle store search
-            if (it.type === 'music') return [chipLink(`https://open.spotify.com/search/${q}`, 'Spotify', '#1DB954')];
+            // Spotify: field-filtered search opened on the Albums tab, so the album itself is the first result
+            if (it.type === 'music') return [chipLink(`https://open.spotify.com/search/${encodeURIComponent(`album:${it.title} artist:${it.artist}`)}/albums`, 'Spotify', '#1DB954')];
             if (it.type === 'game') {
                 const steamStore = (it.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
                 const out = [chipLink(steamStore ? steamStore.url : `https://store.steampowered.com/search/?term=${encodeURIComponent(it.title)}`, 'Steam', '#1b2838')];
@@ -1478,7 +1479,10 @@
             const hrefs = IS_IOS ? { Brave: `brave://open-url?url=${encodeURIComponent(g)}`, Chrome: `googlechrome://www.google.com/search?q=${q}` }
                 : IS_ANDROID ? { Brave: intent('com.brave.browser'), Chrome: intent('com.android.chrome') }
                 : { Brave: g, Chrome: g };
-            const browser = (name, href) => chipLink(href, '🔎 ' + name, name === 'Brave' ? '#fb542b' : '#1a73e8');
+            const CHROME_ICON = `<svg width="14" height="14" viewBox="0 0 48 48" style="vertical-align: -2px; margin-right: 5px;"><circle cx="24" cy="24" r="22" fill="#fff"/><path d="M24 2a22 22 0 0 1 19.05 11H24a11 11 0 0 0-9.53 5.5L7.1 7.6A21.9 21.9 0 0 1 24 2z" fill="#db4437"/><path d="M7.1 7.6l7.37 10.9A11 11 0 0 0 23.9 35l-7.4 12.8A22 22 0 0 1 7.1 7.6z" fill="#0f9d58"/><path d="M43.05 13A22 22 0 0 1 16.5 47.8L23.9 35a11 11 0 0 0 9.63-5.5L43.05 13z" fill="#f4b400"/><circle cx="24" cy="24" r="8.5" fill="#4285f4" stroke="#fff" stroke-width="2"/></svg>`;
+            const browser = (name, href) => name === 'Chrome'
+                ? `<a href="${href}" target="_blank" rel="noopener" title="Google this in Chrome" style="background: #fff; color: #202124; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center;">${CHROME_ICON}Chrome</a>`
+                : chipLink(href, '🦁 Brave', '#fb542b');
             const platform = platformLinks(it);
             return `<div class="link-row" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 10px;">` +
                 platform.join('') + (platform.length ? `<span style="width: 1px; height: 18px; background: rgba(255,255,255,0.25); margin: 0 2px;"></span>` : '') +

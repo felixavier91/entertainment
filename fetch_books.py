@@ -75,6 +75,8 @@ GENRE_RULES = [
 FICTION_RE = re.compile(r'fiction|novel|stories|romance|fantasy|thriller|mystery|poetry|graphic novel|comics|manga|drama|plays', re.I)
 NONFICTION_RE = re.compile(r'nonfiction|non-fiction|biograph|memoir|history|science|business|self-help|psycholog|philosoph|politic|economics|essays|religio|health|cooking|true crime|travel|technology|sociology|journalism|education', re.I)
 # Not interested: schoolbooks, and anything written for kids (picture books, juvenile series, middle grade). YA stays.
+NON_LATIN_RE = re.compile(r'[^\x00-\x7F\u00C0-\u024F\u1E00-\u1EFF\u2010-\u2027\u2032-\u203A\u20AC\u2122\u00A0-\u00BF]')
+JUNK_TITLE_RE = re.compile(r'[{}$#~⨊]|contact center|coupon', re.I)
 SKIP_RE = re.compile(r'textbook|study guide|coloring book|board book|workbook|examination|test prep|dictionar|calendar|coupon|ncert|neet|jee main|'
                      r'juvenile|picture book|children|early reader|chapter book|middle grade|beginning reader|read-aloud|nursery', re.I)
 
@@ -164,14 +166,15 @@ print(f'📚 Open Library fetch, {START_YEAR}–{CURRENT_YEAR}, {len(old)} books
 FIELDS = ','.join(['key', 'title', 'author_name', 'author_key', 'first_publish_year', 'publish_date', 'cover_i',
                    'ratings_average', 'ratings_count', 'readinglog_count', 'want_to_read_count',
                    'currently_reading_count', 'already_read_count', 'subject', 'number_of_pages_median',
-                   'language', 'ebook_access', 'ia', 'first_sentence', 'edition_count'])
+                   'language', 'ebook_access', 'ia', 'first_sentence', 'edition_count',
+                   'editions', 'editions.title', 'editions.language'])   # editions = the best English edition (lang=en + language:eng)
 docs = {}
 for year in range(START_YEAR, CURRENT_YEAR + 1):
     thr = min_readers_for_year(year)
     q = f'first_publish_year:{year} readinglog_count:[{thr} TO *] language:eng'
     page, n = 1, 0
     while True:
-        d = get(f'{OL}/search.json', q=q, sort='readinglog', limit=PAGE, page=page, fields=FIELDS)
+        d = get(f'{OL}/search.json', q=q, sort='readinglog', limit=PAGE, page=page, fields=FIELDS, lang='en')
         time.sleep(DELAY)
         if not d: break
         for doc in d.get('docs', []):
@@ -184,7 +187,7 @@ for lo, hi in CLASSIC_PERIODS:
     q = f'first_publish_year:[{lo} TO {hi}] readinglog_count:[{CLASSIC_MIN_READERS} TO *] language:eng'
     page, n = 1, 0
     while True:
-        d = get(f'{OL}/search.json', q=q, sort='readinglog', limit=PAGE, page=page, fields=FIELDS)
+        d = get(f'{OL}/search.json', q=q, sort='readinglog', limit=PAGE, page=page, fields=FIELDS, lang='en')
         time.sleep(DELAY)
         if not d: break
         for doc in d.get('docs', []):
@@ -220,9 +223,17 @@ for i, (key, doc) in enumerate(docs.items()):
     if i % 100 == 0: print(f'  building {i}/{len(docs)} (work records fetched: {fetched}, wikipedia: {wiki})')
     genres = genres_from(subjects)
     desc = tidy(desc)
+    # English title: the work title is often the original language; the matched English edition carries the English one
+    title = doc['title']
+    if NON_LATIN_RE.search(title):                       # only then: the work title is the original-language one
+        for ed in ((doc.get('editions') or {}).get('docs') or []):
+            t = ed.get('title') or ''
+            if 'eng' in (ed.get('language') or []) and t and not NON_LATIN_RE.search(t) and not JUNK_TITLE_RE.search(t):
+                title = t; break
     books.append({
         'id': key,
-        'title': doc['title'],
+        'title': title,
+        'title_original': doc['title'] if doc['title'] != title else None,
         'author': ', '.join((doc.get('author_name') or ['Unknown'])[:3]),
         'author_key': (doc.get('author_key') or [None])[0],
         'overview': desc,
