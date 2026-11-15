@@ -1350,7 +1350,11 @@
             
             let details;
             if (isGame) {
-                const stores = (item.stores || []).map(st => `<a href="${esc(st.url)}" target="_blank" rel="noopener" style="color: #9cc4ff;">${esc(st.name)}</a>`).join(' · ');
+                // Steam first: RAWG's exact store page when it has one, otherwise a Steam search for the title
+                const steamStore = (item.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
+                const steamUrl = steamStore ? steamStore.url : `https://store.steampowered.com/search/?term=${encodeURIComponent(item.title)}`;
+                const steamChip = `<a href="${esc(steamUrl)}" target="_blank" rel="noopener" style="color: white; text-decoration: none;">${chip(steamStore ? 'Steam' : 'Steam search', '#1b2838')}</a>`;
+                const stores = [steamChip].concat((item.stores || []).filter(st => st !== steamStore).map(st => `<a href="${esc(st.url)}" target="_blank" rel="noopener" style="color: #9cc4ff;">${esc(st.name)}</a>`)).join(' · ');
                 details = `
                     <p style="margin: 4px 0;"><strong>Developer:</strong> ${esc(item.developer || 'N/A')}${item.publisher ? ' · ' + esc(item.publisher) : ''}</p>
                     <p style="margin: 4px 0;"><strong>Released:</strong> ${fmtDate(item.releaseDate)}</p>
@@ -1361,7 +1365,7 @@
                     <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}</p>
                     ${item.playtime ? `<p style="margin: 4px 0;"><strong>Average Playtime:</strong> ${item.playtime} h</p>` : ''}
                     ${item.esrb ? `<p style="margin: 4px 0;"><strong>ESRB:</strong> ${esc(item.esrb)}</p>` : ''}
-                    ${stores ? `<p style="margin: 8px 0;"><strong>Get it:</strong> ${stores}</p>` : ''}`;
+                    <p style="margin: 8px 0;"><strong>Get it:</strong> ${stores}</p>`;
             } else if (isBook) {
                 const links = [`<a href="https://openlibrary.org/works/${item.id}" target="_blank" rel="noopener" style="color: #9cc4ff;">Open Library</a>`];
                 if (item.ia && item.ebook !== 'no_ebook' && item.ebook !== 'printdisabled') links.push(`<a href="https://archive.org/details/${item.ia}" target="_blank" rel="noopener" style="color: #9cc4ff;">${item.ebook === 'public' ? 'Read on archive.org' : 'Borrow on archive.org'}</a>`);
