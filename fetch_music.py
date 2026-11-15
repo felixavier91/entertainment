@@ -31,6 +31,7 @@ WIKI_DELAY = 1.0                 # one Wikipedia summary per second; anything fa
 TYPES = ('album', 'ep')
 MB_BUDGET = int(os.environ.get('MB_BUDGET_MIN', 20)) * 60      # seconds per run spent asking MusicBrainz for original release dates (1 req/s)
 TAGS_BUDGET = int(os.environ.get('TAGS_BUDGET_MIN', 15)) * 60  # seconds per run spent asking MusicBrainz for artist subgenres (1 req/s)
+SPOTIFY_ID, SPOTIFY_SECRET = os.environ.get('SPOTIFY_CLIENT_ID'), os.environ.get('SPOTIFY_CLIENT_SECRET')   # optional: direct album links
 KIDS_GENRE_ID = 95               # Deezer's "Kids" genre: never seeded, never kept
 KIDS_RE = re.compile(r"\b(kids?|children|nursery|lullab|toddler|baby shark|cocomelon|disney junior|sing-?along|bedtime)\b", re.I)
 
@@ -347,6 +348,56 @@ for n, art_id in enumerate(need_tags):
         json.dump(artist_tags, open('cache/artists.json', 'w', encoding='utf-8'), ensure_ascii=False)
 json.dump(artist_tags, open('cache/artists.json', 'w', encoding='utf-8'), ensure_ascii=False)
 
+# ============= 5d. SPOTIFY ALBUM IDS (optional, needs a free Spotify developer app) =============
+# With SPOTIFY_CLIENT_ID/SECRET set, each kept album is looked up once (client-credentials flow, no user login) so the
+# card can open the album page itself instead of a search. Cached per album ('spotify': id or '' when not found).
+spotify_token = None
+def spotify_auth():
+    global spotify_token
+    r = session.post('https://accounts.spotify.com/api/token', data={'grant_type': 'client_credentials'}, auth=(SPOTIFY_ID, SPOTIFY_SECRET), timeout=30)
+    r.raise_for_status(); spotify_token = r.json()['access_token']
+def spotify_album_id(title, artist):
+    """Spotify album id, '' when nothing convincing, None when the request failed (retried next run)."""
+    q = f'album:{display_title(title)} artist:{artist}'
+    for attempt in range(4):
+        try:
+            throttle(8.0)
+            r = session.get('https://api.spotify.com/v1/search', params={'q': q, 'type': 'album', 'limit': 5}, timeout=30,
+                            headers={'Authorization': f'Bearer {spotify_token}'})
+            if r.status_code == 401: spotify_auth(); continue
+            if r.status_code == 429: time.sleep(min(int(r.headers.get('retry-after') or 5), 60) + 1); continue
+            if r.status_code != 200: return ''
+            items = r.json().get('albums', {}).get('items', []); break
+        except (requests.RequestException, ValueError):
+            time.sleep(3)
+    else:
+        return None
+    want = norm_title(title)
+    for it in items:
+        names = [a['name'].lower() for a in it.get('artists', [])]
+        if not any(artist.lower() in n or n in artist.lower() for n in names): continue
+        if norm_title(it['name']) == want or norm_title(it['name']).startswith(want[:15]) or want.startswith(norm_title(it['name'])[:15]):
+            return it['id']
+    return ''
+
+sp_calls = 0
+if SPOTIFY_ID and SPOTIFY_SECRET:
+    try:
+        spotify_auth()
+        need_sp = [aid for aid in kept.values() if 'spotify' not in cache[str(aid)]]
+        print(f'spotify: {len(need_sp)} albums need an id')
+        for n, aid in enumerate(need_sp):
+            c = cache[str(aid)]
+            res = spotify_album_id(c['title'], c['artist']['name']); sp_calls += 1
+            if res is None: continue
+            c['spotify'] = res
+            if n % 500 == 499: print(f'  spotify {n + 1}/{len(need_sp)}'); save_cache()
+        save_cache()
+    except Exception as e:
+        print('spotify: skipped,', e)
+else:
+    print('spotify: no credentials, cards keep the search link')
+
 albums, wiki_calls = [], 0
 need = [aid for aid in kept.values() if old_desc.get(str(aid)) is None] if WIKI_BUDGET > 0 else []
 print(f'wikipedia: {len(need)} albums need a lookup' if WIKI_BUDGET > 0 else 'wikipedia notes: off')
@@ -385,6 +436,7 @@ for n, aid in enumerate(kept.values()):
         'fans': c['fans'],
         'genres': ', '.join(gen) if gen else 'N/A',
         'subgenres': artist_tags.get(str(a['_artist']['id']), {}).get('mbtags', []),
+        'spotify': c.get('spotify') or None,
         'label': c['label'],
         'tracks': c['tracks'],
         'nb_tracks': c['nb_tracks'],
@@ -409,5 +461,5 @@ meta = {
 json.dump({'albums': albums, 'metadata': meta}, open('music.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 print('=' * 50)
 print(f"✅ {meta['total_items']} releases ({meta['total_albums']} albums, {meta['total_eps']} EPs) from {len(artists)} artists")
-print(f"📦 music.json {os.path.getsize('music.json') / 1e6:.1f} MB · cache {os.path.getsize(CACHE) / 1e6:.1f} MB · {calls} Deezer calls · {mb_calls} MusicBrainz date lookups · {tag_calls} artist tag lookups · {wiki_calls} Wikipedia lookups")
+print(f"📦 music.json {os.path.getsize('music.json') / 1e6:.1f} MB · cache {os.path.getsize(CACHE) / 1e6:.1f} MB · {calls} Deezer calls · {mb_calls} MusicBrainz date lookups · {tag_calls} artist tag lookups · {sp_calls} Spotify lookups · {wiki_calls} Wikipedia lookups")
 print('=' * 50)

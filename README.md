@@ -52,7 +52,8 @@ which list is shown; sort, genre, year and keyword filters work the same way for
 |---|---|
 | `TMDB_TOKEN` | `fetch_data.py` |
 | `RAWG_KEY` | `fetch_games.py` (free key from https://rawg.io/apidocs; the games step is skipped while the secret is missing) |
-| — | Open Library, Deezer and Wikipedia need no key |
+| `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | `fetch_music.py`, optional: direct Spotify album links (free developer app at https://developer.spotify.com/dashboard; without them the card opens a Spotify search) |
+| — | Open Library, Deezer, MusicBrainz and Wikipedia need no key |
 
 ---
 
@@ -108,6 +109,8 @@ Thresholds and the genre mapping are at the top of the script.
 6b. Subgenres: MusicBrainz artist tags filtered to MusicBrainz's genre list, top 5 per artist, cached in
    `cache/artists.json` (`mbtags`), `TAGS_BUDGET_MIN` per run (default 15). Shown as `subgenres` on each album; the
    page's second dropdown lists them for the chosen genre.
+6c. Spotify album ids (optional, `SPOTIFY_CLIENT_ID/SECRET`): one search per album, cached (`spotify`), so the card
+   opens the album page directly.
 7. (Off by default.) Wikipedia album notes: `WIKI_BUDGET_MIN=25 python fetch_music.py` spends up to 25 min per run on
    the Wikipedia summary endpoint, which throttles anonymous callers hard. Albums need no synopsis, so the site
    shows the track list instead and the themes are built from artist, title, genres and track names.

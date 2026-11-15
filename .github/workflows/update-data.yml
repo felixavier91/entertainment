@@ -63,6 +63,9 @@ jobs:
       # move every run, so committing it four times a day would bloat the repo for nothing.
       - name: Fetch Deezer data (music)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(date -u +%H)" != "00" ]; then echo "not the daily music run"; exit 0; fi
           python fetch_music.py

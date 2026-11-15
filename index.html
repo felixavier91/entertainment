@@ -1462,7 +1462,7 @@
             const q = encodeURIComponent(it.title + ' ' + (it.author || it.artist || ''));
             if (it.type === 'book') return [chipLink(`https://www.amazon.com/s?k=${q}&i=digital-text`, 'Kindle', '#FF9900')];   // Kindle store search
             // Spotify: field-filtered search opened on the Albums tab, so the album itself is the first result
-            if (it.type === 'music') return [chipLink(`https://open.spotify.com/search/${encodeURIComponent(`album:${it.title} artist:${it.artist}`)}/albums`, 'Spotify', '#1DB954')];
+            if (it.type === 'music') return [chipLink(it.spotify ? `https://open.spotify.com/album/${it.spotify}` : `https://open.spotify.com/search/${encodeURIComponent(`album:${it.title} artist:${it.artist}`)}/albums`, 'Spotify', '#1DB954')];
             if (it.type === 'game') {
                 const steamStore = (it.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
                 const out = [chipLink(steamStore ? steamStore.url : `https://store.steampowered.com/search/?term=${encodeURIComponent(it.title)}`, 'Steam', '#1b2838')];
@@ -2662,6 +2662,7 @@
                 year: a.year,
                 genres: a.genres,
                 subgenres: a.subgenres || [],
+                spotify: a.spotify || null,
                 overview: a.overview,
                 releaseDate: a.release_date,
                 type: 'music',
