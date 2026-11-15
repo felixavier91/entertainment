@@ -119,7 +119,7 @@ The first run is slow (≈50k Deezer calls, 1–3 h). Later runs cost ~5–15k c
 library), paging until the first game under the threshold `60 + 40 × (years old)` adds, at most 10
 pages (400 games) per year. DLC/editions are excluded (`exclude_additions`), as are games without
 artwork, unreleased games, "Adults Only" ESRB, anything tagged or titled NSFW, and games with a RAWG
-player rating under 3.
+player rating under 3 unless Metacritic is 75 or higher.
 
 **Per game:** title, release date, artwork, RAWG rating (0–5) and count, Metacritic, `added`
 (= "Most Players"), average playtime, genres, platforms (+ `family`: pc/playstation/xbox/nintendo),

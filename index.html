@@ -37,8 +37,8 @@
             top: 10px;
             max-height: calc(100vh - 20px);
             overflow-y: auto;
-            min-width: 420px;
-            max-width: 420px;
+            min-width: 520px;
+            max-width: 520px;
         }
         
         .filter-toggle {
@@ -1308,6 +1308,20 @@
             e.stopPropagation();
             togglePreview(b, b.dataset.preview);
         }, true);
+        document.addEventListener('click', e => {
+            const b = e.target.closest('.shot-nav');
+            if (!b) return;
+            e.stopPropagation(); e.preventDefault();
+            const card = b.closest('.movie-card');
+            const shots = JSON.parse(card.dataset.shots || '[]');
+            if (!shots.length) return;
+            const idx = (parseInt(card.dataset.idx || '0', 10) + parseInt(b.dataset.dir, 10) + shots.length) % shots.length;
+            card.dataset.idx = idx;
+            const img = card.querySelector('img');
+            if (img) { img.src = shots[idx]; img.style.objectFit = idx === 0 ? 'cover' : 'contain'; }
+            const c = card.querySelector('.shot-count'); if (c) c.textContent = (idx + 1) + ' / ' + shots.length;
+            const cap = card.querySelector('.game-caption'); if (cap) cap.style.opacity = idx === 0 ? '1' : '0.35';
+        }, true);
         
         const metaColor = m => m >= 75 ? '#1f7a3a' : m >= 50 ? '#b7791f' : '#b91c1c';
         function mediaCard(item) {
@@ -1372,11 +1386,20 @@
                     <p style="margin: 8px 0 0; font-size: 12px; color: #ddd;"><strong>Tracks:</strong><br>${tracks}</p>`;
             }
             
+            // Screenshot browser: ‹ › flip through RAWG's pictures (key art first, then gameplay)
+            const shots = isGame ? (item.screenshots || []) : [];
+            const shotNav = shots.length > 1 ? `
+                <button class="shot-nav" data-dir="-1" title="Previous picture" style="position: absolute; left: 6px; top: 50%; transform: translateY(-50%); width: 34px; height: 44px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.35); background: rgba(0,0,0,0.55); color: #fff; font-size: 22px; line-height: 1; padding: 0; cursor: pointer;">‹</button>
+                <button class="shot-nav" data-dir="1" title="Next picture" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 34px; height: 44px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.35); background: rgba(0,0,0,0.55); color: #fff; font-size: 22px; line-height: 1; padding: 0; cursor: pointer;">›</button>
+                <div class="shot-count" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 10px;">1 / ${shots.length}</div>` : '';
+            const shotData = shots.length > 1 ? ` data-shots='${esc(JSON.stringify(shots))}' data-idx="0"` : '';
+            
             // RAWG art is key art / screenshots with no lettering, so games get their name printed on the card
-            const caption = isGame ? `<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 70px 14px 14px; background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.55) 55%, transparent); color: #fff; pointer-events: none;"><div style="font-size: 19px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.9); padding-right: ${badge ? '120px' : '0'};">${esc(item.title)}</div><div style="font-size: 12px; color: #ccc; margin-top: 3px;">${item.year || ''}${item.developer ? ' · ' + esc(item.developer) : ''}</div></div>` : '';
+            const caption = isGame ? `<div class="game-caption" style="position: absolute; left: 0; right: 0; bottom: 0; padding: 70px 14px 14px; transition: opacity 0.2s; background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.55) 55%, transparent); color: #fff; pointer-events: none;"><div style="font-size: 19px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.9); padding-right: ${badge ? '120px' : '0'};">${esc(item.title)}</div><div style="font-size: 12px; color: #ccc; margin-top: 3px;">${item.year || ''}${item.developer ? ' · ' + esc(item.developer) : ''}</div></div>` : '';
             return `
-                <div class="movie-card" style="position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer;">
+                <div class="movie-card"${shotData} style="position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; background: #000;">
                     ${cover}
+                    ${shotNav}
                     ${caption}
                     ${badgeHTML}
                     <div class="card-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s; overflow-y: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;">
@@ -1825,7 +1848,7 @@
                 // Click/tap to toggle overlay
                 card.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (e.target.closest('.preview-btn') || e.target.closest('a') || e.target.closest('.taste')) return;
+                    if (e.target.closest('.preview-btn') || e.target.closest('a') || e.target.closest('.taste') || e.target.closest('.shot-nav')) return;
                     
                     if (isOverlayVisible) {
                         overlay.style.opacity = '0';
@@ -2610,6 +2633,7 @@
                 type: 'game',
                 subtype: g.family,            // pc | playstation | xbox | nintendo | other
                 poster: g.image,
+                screenshots: g.screenshots || [],
                 platforms: g.platforms,
                 developer: g.developer,
                 publisher: g.publisher,
