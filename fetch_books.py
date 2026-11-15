@@ -163,7 +163,7 @@ if os.path.exists('books.json'):
 print(f'📚 Open Library fetch, {START_YEAR}–{CURRENT_YEAR}, {len(old)} books already known\n')
 
 # ============= SEARCH, YEAR BY YEAR =============
-FIELDS = ','.join(['key', 'title', 'author_name', 'author_key', 'first_publish_year', 'publish_date', 'cover_i',
+FIELDS = ','.join(['key', 'title', 'subtitle', 'author_name', 'author_key', 'first_publish_year', 'publish_date', 'cover_i',
                    'ratings_average', 'ratings_count', 'readinglog_count', 'want_to_read_count',
                    'currently_reading_count', 'already_read_count', 'subject', 'number_of_pages_median',
                    'language', 'ebook_access', 'ia', 'first_sentence', 'edition_count',
@@ -230,9 +230,14 @@ for i, (key, doc) in enumerate(docs.items()):
             t = ed.get('title') or ''
             if 'eng' in (ed.get('language') or []) and t and not NON_LATIN_RE.search(t) and not JUNK_TITLE_RE.search(t):
                 title = t; break
+    subtitle = (doc.get('subtitle') or '').strip().rstrip('.')
+    if subtitle and NON_LATIN_RE.search(subtitle): subtitle = ''
+    if subtitle and subtitle.lower() in title.lower(): subtitle = ''
     books.append({
         'id': key,
-        'title': title,
+        'title': f'{title}: {subtitle}' if subtitle else title,     # "The MAGA Doctrine: The Only Ideas That Will Win the Future"
+        'title_short': title,
+        'subtitle': subtitle or None,
         'title_original': doc['title'] if doc['title'] != title else None,
         'author': ', '.join((doc.get('author_name') or ['Unknown'])[:3]),
         'author_key': (doc.get('author_key') or [None])[0],
