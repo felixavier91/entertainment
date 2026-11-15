@@ -202,7 +202,7 @@ save_cache()
 kept = {}
 for aid, a in candidates.items():
     c = cache.get(str(aid))
-    if not c or not c.get('release_date'): continue
+    if not c or not c.get('release_date') or c['release_date'] > TODAY: continue      # unreleased
     year = int(c['release_date'][:4])
     if c['fans'] < min_fans_for_year(year): continue
     if 'Kids' in c['genres'] or KIDS_RE.search(c['title'] or '') or KIDS_RE.search(a['_artist']['name']): continue

@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        // "Description-only" switch left on → open the text view straight away (no poster flash)
+        try { if (localStorage.getItem('descOnly') === '1' && !location.search.includes('posters')) location.replace('plots.html'); } catch (e) {}
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Movies, Shows, Books & Music</title>
@@ -338,6 +342,24 @@
         .controls label {
             color: #ffffff;
         }
+        
+        /* Description-only switch */
+        .switch {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            margin: 2px 0 14px; cursor: pointer; user-select: none;
+            color: #fff; font-size: 13px; font-weight: 600;
+        }
+        .switch .track {
+            width: 44px; height: 24px; border-radius: 12px; background: #555;
+            position: relative; transition: background 0.2s; flex: none;
+        }
+        .switch .track::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+            border-radius: 50%; background: #fff; transition: left 0.2s;
+        }
+        .switch.on .track { background: #3b82f6; }
+        .switch.on .track::after { left: 23px; }
+        .switch .hint { color: #999; font-weight: normal; font-size: 11px; }
         
         .controls .status {
             color: #cccccc;
@@ -796,6 +818,11 @@
         <div class="controls filters-collapsed" id="controls">
             <input type="file" id="jsonFile" accept=".json" style="display: none;">
             
+            <div class="switch" id="descSwitch" role="switch" aria-checked="false" title="Read descriptions only, no posters">
+                <span class="track"></span>
+                <span>Description-only <span class="hint">off</span></span>
+            </div>
+            
             <button id="collapseBtn" onclick="toggleCollapse()">🔽 Show Filters</button>
             
             <!-- Sort and Search Controls -->
@@ -866,8 +893,7 @@
                 <div class="filter-row-keywords" style="margin-bottom: 15px;">
                     <input type="text" id="searchFilter" placeholder="Filter by keywords..." style="width: 100%; padding: 8px; border: 2px solid #555; background: #2a2a2a; color: white; border-radius: 5px; font-size: 13px;">
                     <p id="itemCount" style="margin-top: 8px; margin-bottom: 0; color: #999; font-size: 11px;">No items loaded</p>
-                    <a href="plots.html" style="display: inline-block; margin-top: 8px; color: #cccccc; font-size: 13px;">📝 Search plots &amp; blurbs (text only) →</a>
-                    <a href="themes.html" style="display: inline-block; margin-top: 8px; margin-left: 14px; color: #cccccc; font-size: 13px;">🧭 Themes &amp; picks for me →</a>
+                    <a href="themes.html" style="display: inline-block; margin-top: 8px; color: #cccccc; font-size: 13px;">🧭 Themes &amp; picks for me →</a>
                 </div>
                 
             </div>
@@ -1904,6 +1930,21 @@
             }
         });
 
+        // Description-only switch: on → text view (plots.html) for the current medium
+        const PLOT_TYPE = { movies: 'movie', tv: 'tv', books: 'book', music: 'music', games: 'game' };
+        document.getElementById('descSwitch').addEventListener('click', () => {
+            try { localStorage.setItem('descOnly', '1'); } catch (e) {}
+            document.getElementById('descSwitch').classList.add('on');
+            location.href = 'plots.html?type=' + PLOT_TYPE[currentContentType];
+        });
+        
+        // Coming back from the text view: index.html?posters&type=books reopens that pill
+        (() => {
+            const t = new URLSearchParams(location.search).get('type');
+            const radio = t && document.querySelector('input[name="contentType"][value="' + t + '"]');
+            if (radio) { radio.checked = true; currentContentType = t; }
+        })();
+        
         // Auto-load on page load
         window.addEventListener('load', async () => {
             await loadData();
@@ -2546,11 +2587,10 @@
         // Initialize selected content type button styling
         document.querySelectorAll('input[name="contentType"]').forEach(r => {
             const label = r.closest('label');
-            if (r.checked) {
-                label.style.background = '#3b82f6';
-                label.style.borderColor = '#3b82f6';
-            }
+            label.style.background = r.checked ? '#3b82f6' : '#2a2a2a';
+            label.style.borderColor = r.checked ? '#3b82f6' : '#555';
         });
+        updateSortLabels();
         
         // The second and third sort pills mean different things per medium
         function updateSortLabels() {

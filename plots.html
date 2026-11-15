@@ -34,13 +34,20 @@
             align-items: center;
         }
 
-        .back {
-            color: #999;
-            text-decoration: none;
-            font-size: 14px;
-            white-space: nowrap;
+        /* Description-only switch (on here; off takes you back to the posters) */
+        .switch {
+            display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+            color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap;
         }
-        .back:hover { color: #ffffff; }
+        .switch .track {
+            width: 44px; height: 24px; border-radius: 12px; background: #3b82f6;
+            position: relative; flex: none;
+        }
+        .switch .track::after {
+            content: ''; position: absolute; top: 3px; left: 23px; width: 18px; height: 18px;
+            border-radius: 50%; background: #fff;
+        }
+        @media (max-width: 600px) { .switch span:last-child { display: none; } }
 
         #q {
             flex: 1;
@@ -152,7 +159,10 @@
     <div class="top">
         <div class="top-inner">
             <div class="row">
-                <a class="back" href="index.html">← Posters</a>
+                <div class="switch" id="descSwitch" role="switch" aria-checked="true" title="Turn off to go back to the posters">
+                    <span class="track"></span>
+                    <span>Description-only</span>
+                </div>
                 <input type="search" id="q" placeholder="Search plots, blurbs, track lists &amp; game descriptions… e.g. heist, time travel, &quot;small town&quot;" autocomplete="off" autofocus>
             </div>
             <div class="sub">
@@ -334,6 +344,13 @@
             }
         }
 
+        // Switch off → back to the posters, same medium, without the redirect kicking in again
+        const POSTER_TYPE = { movie: 'movies', tv: 'tv', book: 'books', music: 'music', game: 'games' };
+        document.getElementById('descSwitch').addEventListener('click', () => {
+            try { localStorage.setItem('descOnly', '0'); } catch (e) {}
+            location.href = 'index.html?posters' + (type !== 'all' ? '&type=' + POSTER_TYPE[type] : '');
+        });
+        
         // plots.html?q=heist opens with that search already typed in; plots.html?type=book narrows the medium
         qEl.value = new URLSearchParams(location.search).get('q') || '';
         const t0 = new URLSearchParams(location.search).get('type');
