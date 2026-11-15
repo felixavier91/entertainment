@@ -47,7 +47,7 @@ GENRE_RULES = [
     ('History', r'\bhistory\b|world war|civil war|ancient|medieval'),
     ('True Crime', r'true crime|criminals'),
     ('Science & Nature', r'popular science|\bscience\b|physics|biology|evolution|astronomy|cosmology|natural history|climate|mathematics'),
-    ('Psychology', r'psycholog|mental health|mindfulness|cognitive|neuroscience'),
+    ('Psychology', r'psychology|psychological aspects|mental health|mindfulness|cognitive science|neuroscience'),
     ('Self-Help', r'self-help|self help|self-actualization|habits|personal development|motivation|happiness|conduct of life|productivity'),
     ('Business & Economics', r'business|economics|finance|investing|management|entrepreneur|leadership|money'),
     ('Philosophy', r'philosoph|ethics|stoicism'),
@@ -169,7 +169,7 @@ for i, (key, doc) in enumerate(docs.items()):
     if SKIP_RE.search(' | '.join(subjects)) or not doc.get('title'): skipped += 1; continue
     year = doc.get('first_publish_year') or 0
     prev = old.get(key)
-    desc = (prev or {}).get('description')
+    desc = (prev or {}).get('overview')
     if desc is None or (desc == '' and (prev or {}).get('desc_checked') != CURRENT_YEAR):
         work = get(f'{OL}/works/{key}.json') or {}
         time.sleep(DELAY); fetched += 1

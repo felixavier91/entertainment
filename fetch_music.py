@@ -27,7 +27,7 @@ MAX_ARTISTS = int(os.environ.get('MAX_ARTISTS', 2500))
 MIN_ARTIST_FANS = 40_000         # related artists below this are not explored
 REFRESH_DAYS = 30                # how often an old album's fan count is re-read
 RECENT_YEARS = 1                 # albums this new are re-read every run
-WIKI_DELAY = 0.2
+WIKI_DELAY = 0.3                 # ~3 Wikipedia searches per second overall
 TYPES = ('album', 'ep')
 KIDS_GENRE_ID = 95               # Deezer's "Kids" genre: never seeded, never kept
 KIDS_RE = re.compile(r"\b(kids?|children|nursery|lullab|toddler|baby shark|cocomelon|disney junior|sing-?along|bedtime)\b", re.I)
@@ -93,11 +93,11 @@ def norm_title(t):
 os.makedirs('cache', exist_ok=True)
 CACHE = 'cache/albums.json'
 cache = json.load(open(CACHE, encoding='utf-8')) if os.path.exists(CACHE) else {}
-old_desc = {}
+old_desc = {}          # album id → notes ('' = Wikipedia was asked and has no article; only albums never asked get a lookup)
 if os.path.exists('music.json'):
     try:
         for a in json.load(open('music.json', encoding='utf-8')).get('albums', []):
-            if 'overview' in a: old_desc[str(a['id'])] = a['overview']
+            if a.get('wiki_checked') or (a.get('overview') or '').strip(): old_desc[str(a['id'])] = a.get('overview') or ''
     except Exception as e:
         print('could not read old music.json:', e)
 print(f'🎵 Deezer fetch, {START_YEAR}–{CURRENT_YEAR}; {len(cache)} albums cached, {len(old_desc)} descriptions known\n')
@@ -213,14 +213,23 @@ print(f'kept: {len(kept)} after fan thresholds and dedupe\n')
 
 # ============= 6. WIKIPEDIA DESCRIPTIONS =============
 def wikipedia(title, artist):
+    """Notes for an album, '' when Wikipedia has no article for it, None when the lookup itself failed (retried next run)."""
     d = None
-    try:
-        throttle(1.0 / WIKI_DELAY)
-        r = session.get('https://en.wikipedia.org/w/api.php', timeout=60, params=dict(
-            action='query', generator='search', gsrsearch=f'"{title}" {artist} album', gsrlimit=1,
-            prop='extracts|description', exintro=1, explaintext=1, exsentences=5, format='json', formatversion=2))
-        d = r.json()
-    except (requests.RequestException, ValueError):
+    for attempt in range(3):
+        try:
+            throttle(1.0 / WIKI_DELAY)
+            r = session.get('https://en.wikipedia.org/w/api.php', timeout=60, params=dict(
+                action='query', generator='search', gsrsearch=f'"{title}" {artist} album', gsrlimit=1,
+                prop='extracts|description', exintro=1, explaintext=1, exsentences=5, format='json', formatversion=2))
+            if r.status_code == 429 or r.status_code >= 500:
+                time.sleep(20 * (attempt + 1)); continue
+            d = r.json()
+            if d.get('error'):
+                time.sleep(20 * (attempt + 1)); continue
+            break
+        except (requests.RequestException, ValueError):
+            time.sleep(10 * (attempt + 1))
+    else:
         return None
     pages = (d or {}).get('query', {}).get('pages') or []
     if not pages: return ''
@@ -235,12 +244,17 @@ need = [aid for aid in kept.values() if old_desc.get(str(aid)) is None]
 print(f'wikipedia: {len(need)} albums need a lookup')
 for start in range(0, len(need), 300):
     chunk = need[start:start + 300]
-    for aid, text in zip(chunk, pmap(lambda i: wikipedia(cache[str(i)]['title'], candidates[i]['_artist']['name']), chunk, workers=3)):
-        old_desc[str(aid)] = text or ''; wiki_calls += 1
-    print(f'  wikipedia {start + len(chunk)}/{len(need)}')
+    failed = 0
+    for aid, text in zip(chunk, pmap(lambda i: wikipedia(cache[str(i)]['title'], candidates[i]['_artist']['name']), chunk, workers=2)):
+        wiki_calls += 1
+        if text is None: failed += 1; continue           # lookup failed: leave it unknown so the next run retries
+        old_desc[str(aid)] = text
+    print(f'  wikipedia {start + len(chunk)}/{len(need)}' + (f' ({failed} failed)' if failed else ''))
 for n, aid in enumerate(kept.values()):
     c, a = cache[str(aid)], candidates[aid]
-    desc = old_desc.get(str(aid)) or ''
+    desc = old_desc.get(str(aid))
+    checked = desc is not None
+    desc = desc or ''
     gen = c['genres'] or a['_artist']['genres'][:2] or (['Reggaeton'] if a.get('genre_id') == 122 else [])
     if not gen and a.get('genre_id') in genres: gen = [genres[a['genre_id']]]
     albums.append({
@@ -263,6 +277,7 @@ for n, aid in enumerate(kept.values()):
         'preview': c['preview'],
         'type': c['record_type'],
         'link': f'https://www.deezer.com/album/{aid}',
+        'wiki_checked': TODAY if checked else None,
     })
 
 albums.sort(key=lambda a: a['release_date'], reverse=True)

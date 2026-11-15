@@ -24,13 +24,13 @@ KEY = os.environ.get('RAWG_KEY')
 if not KEY:
     raise SystemExit('RAWG_KEY environment variable not set (free key at https://rawg.io/apidocs)')
 PAGE_SIZE = 40
-MAX_PAGES_PER_YEAR = 8           # 320 games per year at most
+MAX_PAGES_PER_YEAR = 10          # 400 games per year at most
 DELAY = 0.25
 
 def min_added_for_year(year):
     """Library adds a game needs to be listed. Newer games need fewer.
-    2026: 150 · 2025: 300 · 2020: 1,050 · 2010: 2,550 · 2000: 4,050 · 1990: 5,550"""
-    return 150 * (CURRENT_YEAR - year + 1)
+    2026: 100 · 2025: 140 · 2020: 340 · 2010: 740 · 2000: 1,140 · 1990: 1,540"""
+    return 100 + 40 * (CURRENT_YEAR - year)
 
 FAMILY = [('nintendo', r'nintendo|wii|switch|game boy|gamecube|nes|ds\b'), ('playstation', r'playstation|ps vita|psp'),
           ('xbox', r'xbox'), ('pc', r'^pc$|macos|linux|web')]
