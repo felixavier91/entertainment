@@ -64,7 +64,7 @@ GENRE_RULES = [
 FICTION_RE = re.compile(r'fiction|novel|stories|romance|fantasy|thriller|mystery|poetry|graphic novel|comics|manga|drama|plays', re.I)
 NONFICTION_RE = re.compile(r'nonfiction|non-fiction|biograph|memoir|history|science|business|self-help|psycholog|philosoph|politic|economics|essays|religio|health|cooking|true crime|travel|technology|sociology|journalism|education', re.I)
 # Not interested: schoolbooks, and anything written for kids (picture books, juvenile series, middle grade). YA stays.
-SKIP_RE = re.compile(r'textbook|study guide|coloring book|board book|workbook|examination|test prep|dictionar|calendar|'
+SKIP_RE = re.compile(r'textbook|study guide|coloring book|board book|workbook|examination|test prep|dictionar|calendar|coupon|ncert|neet|jee main|'
                      r'juvenile|picture book|children|early reader|chapter book|middle grade|beginning reader|read-aloud|nursery', re.I)
 
 def rated(d):
