@@ -1,8 +1,9 @@
-"""Themes for books and music (the movie themes are refresh_themes.py, which runs on the ROG with Ollama).
+"""Themes for books, music and games (the movie themes are refresh_themes.py, which runs on the ROG with Ollama).
 This one runs in GitHub Actions with fastembed (BAAI/bge-small-en-v1.5, CPU, ~130 MB model), so it needs no local machine.
 
     python refresh_media_themes.py books      # books.json  → themes_books.json
     python refresh_media_themes.py music      # music.json  → themes_music.json
+    python refresh_media_themes.py games      # games.json  → themes_games.json
 
 Only NEW titles are embedded; each joins the existing theme whose centroid it is closest to, so theme names stay stable.
 Files per medium M (all tracked in git):
@@ -32,8 +33,13 @@ def texts_for(medium, data):
             tracks = ' · '.join(a.get('tracks') or [])
             if not desc and len(tracks) < 20: continue
             out[f"music:{a['id']}"] = f"{a['artist']} – {a['title']} ({a.get('year', '')}). {a.get('genres', '')}. {desc} Tracks: {tracks}"[:2000]
+    elif medium == 'games':
+        for g in data['games']:
+            desc = (g.get('overview') or '').strip()
+            if len(desc) < 40: continue
+            out[f"game:{g['id']}"] = f"{g['title']} ({g.get('year', '')}). {g.get('genres', '')}. {', '.join(g.get('tags') or [])}. {desc}"[:2000]
     else:
-        raise SystemExit('medium must be books or music')
+        raise SystemExit('medium must be books, music or games')
     return out
 
 def embed(texts):

@@ -36,8 +36,10 @@ if not os.path.exists(f'theme_names_{medium}.json'):
 by = {}
 if medium == 'books':
     for b in data['books']: by[f"book:{b['id']}"] = (b['title'], b.get('author', ''), b.get('readers', 0))
-else:
+elif medium == 'music':
     for a in data['albums']: by[f"music:{a['id']}"] = (a['title'], a['artist'], a.get('fans', 0))
+else:
+    for g in data['games']: by[f"game:{g['id']}"] = (g['title'], g.get('developer', ''), g.get('added', 0))
 cv = CountVectorizer(stop_words='english', min_df=3, ngram_range=(1, 2), max_features=30000)
 C = cv.fit_transform([cur[k] for k in ids]); vocab = np.array(cv.get_feature_names_out())
 tot = np.asarray(C.sum(0)).ravel() + 1

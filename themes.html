@@ -99,6 +99,7 @@
                     <button data-medium="movies">🎬 Movies &amp; Shows</button>
                     <button data-medium="books">📚 Books</button>
                     <button data-medium="music">🎵 Music</button>
+                    <button data-medium="games">🎮 Games</button>
                 </div>
             </div>
             <div class="row" style="margin-top: 10px;">
@@ -178,6 +179,23 @@
                         wherePrefix: '', pop: a.fans || 0
                     }));
                 }
+            },
+            games: {
+                data: 'games.json', themes: 'themes_games.json',
+                types: [['all', 'All'], ['pc', 'PC'], ['playstation', 'PlayStation'], ['xbox', 'Xbox'], ['nintendo', 'Nintendo']],
+                goodLabel: 'Metacritic 75+', goodTitle: 'Only games with a Metacritic score of 75 or higher',
+                good: it => it.metacritic >= 75,
+                quality: it => it.metacritic ? it.metacritic / 10 : (it.rating ? it.rating * 2 : 5),
+                bestFirst: 'Best reviewed first',
+                parse(data) {
+                    return (data.games || []).map(g => ({
+                        ...g, key: 'game:' + g.id, plot: (g.overview || '').trim(), type: g.family || 'other',
+                        kind: 'Game', score: g.metacritic ? 'MC ' + g.metacritic : (g.rating ? '★ ' + g.rating.toFixed(1) : ''),
+                        img: g.image || null, square: true,
+                        where: (g.developer || '') + (g.platforms ? ' · ' + g.platforms : ''),
+                        wherePrefix: '', pop: g.added || 0
+                    }));
+                }
             }
         };
 
@@ -209,7 +227,7 @@
         }
         const M = () => MEDIA[medium];
         const quality = it => M().quality(it);
-        const pass = it => (type === 'all' || it.type === type) && (!good || M().good(it));
+        const pass = it => (type === 'all' || it.type === type || (it.families && it.families.includes(type))) && (!good || M().good(it));
 
         function itemHtml(it) {
             const t = taste[it.key] || 0;
@@ -253,7 +271,7 @@
                     ex: all.slice().sort((a, b) => b.pop - a.pop).slice(0, 5).map(it => it.title)
                 };
             }).filter(r => r.n).sort((a, b) => b.liked - a.liked || b.n - a.n);
-            const what = medium === 'books' ? 'Every blurb' : medium === 'music' ? 'Every album\'s notes and track list' : 'Every plot';
+            const what = medium === 'books' ? 'Every blurb' : medium === 'music' ? 'Every album\'s notes and track list' : medium === 'games' ? 'Every game description' : 'Every plot';
             headEl.innerHTML = '<h1>' + rows.length + ' themes</h1><p class="hint">' + what + ' was read and grouped by what it is about. ' +
                 'Pick a theme that sounds like your kind of thing' + (likes.length ? '; themes with your 👍 come first.' : '.') + '</p>';
             list = []; moreEl.style.display = 'none';
@@ -303,7 +321,7 @@
         function viewMe(keepSearch) {
             const likes = liked(), nos = disliked();
             if (!keepSearch) {
-                const noun = medium === 'books' ? 'books' : medium === 'music' ? 'albums' : 'titles';
+                const noun = medium === 'books' ? 'books' : medium === 'music' ? 'albums' : medium === 'games' ? 'games' : 'titles';
                 headEl.innerHTML = '<h1>For me</h1><p class="hint">Tell it a few ' + noun + ' you already love. It then ranks everything else by how close it is to the ones you liked ' +
                     '(and away from the ones you didn\'t). 5 to 10 likes already works well.</p>' +
                     '<input type="search" id="find" placeholder="Type a title you loved…" autocomplete="off">' +
@@ -433,7 +451,7 @@
                 for (const it of cfg.parse(data)) {
                     const row = rowOf[it.key];
                     if (row === undefined || !it.plot) continue;   // newer than the last theme build
-                    it.row = row; it.theme = th.theme[row]; it.low = (it.title + ' ' + (it.author || it.artist || '')).toLowerCase();
+                    it.row = row; it.theme = th.theme[row]; it.low = (it.title + ' ' + (it.author || it.artist || it.developer || '')).toLowerCase();
                     its.push(it); bk[it.key] = it;
                 }
                 loaded[m] = { items: its, byKey: bk, themes: th.themes, dim: d, vec: v };

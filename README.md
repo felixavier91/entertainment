@@ -1,6 +1,6 @@
-# New Movies, Shows, Books & Music — Repo Guide
+# New Movies, Shows, Books, Music & Games — Repo Guide
 
-One static site, four media, zero ads. Everything is plain HTML + JSON on GitHub Pages
+One static site, five media, zero ads. Everything is plain HTML + JSON on GitHub Pages
 (https://felixavier91.github.io/new-movies-and-shows/). Scheduled jobs refresh the JSON; the
 pages just `fetch()` it and render client-side.
 
@@ -18,14 +18,15 @@ GitHub Actions (every 6 h)            data files (committed)              pages 
 fetch_data.py   (TMDB, needs key)     data.json  (movies + tv_shows)      index.html   posters + filters
 fetch_books.py  (Open Library)        books.json (books)                  plots.html   full-text search
 fetch_music.py  (Deezer + Wikipedia)  music.json (albums + EPs)           themes.html  themes + "For me"
+fetch_games.py  (RAWG, needs key)     games.json (video games)
                                       cache/albums.json, cache/artists.json  (Deezer cache, not read by pages)
-refresh_media_themes.py books|music   themes_books.json, themes_music.json (+ labels/centroids/embeddings)
+refresh_media_themes.py books|music|games   themes_<m>.json (+ labels/centroids/embeddings)
 
 ROG laptop (hourly systemd timer)
 refresh_themes.sh → refresh_themes.py themes.json, labels.json          (movie/TV themes, Ollama bge-m3)
 ```
 
-The content-type pills on `index.html` (🎬 Movies · 📺 TV Shows · 📚 Books · 🎵 Music) decide
+The content-type pills on `index.html` (🎬 Movies · 📺 TV Shows · 📚 Books · 🎵 Music · 🎮 Games) decide
 which list is shown; sort, genre, year and keyword filters work the same way for all four.
 
 ### Repo map
@@ -38,6 +39,7 @@ which list is shown; sort, genre, year and keyword filters work the same way for
 | `fetch_data.py` | TMDB fetcher → `data.json` (unchanged) |
 | `fetch_books.py` | Open Library fetcher → `books.json` |
 | `fetch_music.py` | Deezer fetcher → `music.json` + `cache/` |
+| `fetch_games.py` | RAWG fetcher → `games.json` |
 | `refresh_themes.py`, `refresh_themes.sh`, `cluster.py` | Movie/TV themes (run on the ROG with Ollama) |
 | `refresh_media_themes.py` | Book and music themes (run in Actions with fastembed) |
 | `cluster_media.py` | One-off: build the initial K themes for a medium and print a report for naming them |
@@ -49,6 +51,7 @@ which list is shown; sort, genre, year and keyword filters work the same way for
 | Secret | Used by |
 |---|---|
 | `TMDB_TOKEN` | `fetch_data.py` |
+| `RAWG_KEY` | `fetch_games.py` (free key from https://rawg.io/apidocs; the games step is skipped while the secret is missing) |
 | — | Open Library, Deezer and Wikipedia need no key |
 
 ---
@@ -57,7 +60,8 @@ which list is shown; sort, genre, year and keyword filters work the same way for
 
 `update-data.yml` runs every 6 hours (and on every push, but a push only redeploys — it does
 not refetch). Steps, in order: `fetch_data.py` → `fetch_books.py` → `fetch_music.py` →
-`refresh_media_themes.py books` → `refresh_media_themes.py music` → commit → deploy Pages.
+`fetch_games.py` (only the 00:00 UTC run, or manual runs, to stay inside RAWG's 20k/month) →
+`refresh_media_themes.py` for books, music and games (each skipped until its themes exist) → commit → deploy Pages.
 A `concurrency` group stops two runs from overlapping; the job may take 20–40 minutes because
 of the Deezer refresh (§4).
 
@@ -109,14 +113,31 @@ The first run is slow (≈50k Deezer calls, 1–3 h). Later runs cost ~5–15k c
 
 ---
 
+## 4b. Games (`fetch_games.py` → `games.json`)
+
+**Source:** RAWG API, one query per year from 1990, ordered by `added` (users who put the game in a
+library), paging until the first game under the threshold `150 × (years old + 1)` adds, at most 8
+pages (320 games) per year. DLC/editions are excluded (`exclude_additions`), as are games without
+artwork, unreleased games and "Adults Only" ESRB.
+
+**Per game:** title, release date, artwork, RAWG rating (0–5) and count, Metacritic, `added`
+(= "Most Players"), average playtime, genres, platforms (+ `family`: pc/playstation/xbox/nintendo),
+developer, publisher, store links, ESRB, tags, and the description from the game record (HTML
+stripped, Spanish half dropped). Description and credits are reused from the previous `games.json`.
+
+The card badge is the Metacritic score (green ≥ 75, amber ≥ 50, red below); "Highest Rated" sorts by
+Metacritic, falling back to the RAWG rating.
+
+---
+
 ## 5. Themes
 
 Movies/TV: unchanged — `refresh_themes.py` on the ROG, Ollama `bge-m3`, 60 themes
 (`theme_names.json`), output `themes.json`.
 
-Books and music: `refresh_media_themes.py M` in Actions, fastembed `BAAI/bge-small-en-v1.5`
+Books, music and games: `refresh_media_themes.py M` in Actions, fastembed `BAAI/bge-small-en-v1.5`
 (CPU, no server). Text per book = title, author, genres, blurb, subjects; per album = artist,
-title, year, genres, Wikipedia notes, track list. New titles are embedded and join the nearest
+title, year, genres, Wikipedia notes, track list; per game = title, year, genres, tags, description. New titles are embedded and join the nearest
 existing centroid, so theme names stay stable. Files per medium `M`: `theme_names_M.json`,
 `centroids_M.npy`, `mean_M.npy`, `labels_M.json`, `embeddings_M.npy` + `embed_ids_M.json`
 (cache, float16, committed), `themes_M.json` (what the page reads).
@@ -131,7 +152,7 @@ rm -f theme_names_books.json labels_books.json
 ```
 
 "For me" likes/dislikes live in the browser's `localStorage` (`taste`), keyed `movie:ID`,
-`tv:ID`, `book:OLxxxW`, `music:ID`, so the three media never mix.
+`tv:ID`, `book:OLxxxW`, `music:ID`, `game:ID`, so the media never mix.
 
 ---
 

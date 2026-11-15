@@ -153,7 +153,7 @@
         <div class="top-inner">
             <div class="row">
                 <a class="back" href="index.html">← Posters</a>
-                <input type="search" id="q" placeholder="Search plots, blurbs &amp; track lists… e.g. heist, time travel, &quot;small town&quot;" autocomplete="off" autofocus>
+                <input type="search" id="q" placeholder="Search plots, blurbs, track lists &amp; game descriptions… e.g. heist, time travel, &quot;small town&quot;" autocomplete="off" autofocus>
             </div>
             <div class="sub">
                 <div class="types" id="types">
@@ -162,6 +162,7 @@
                     <button data-type="tv">Shows</button>
                     <button data-type="book">Books</button>
                     <button data-type="music">Music</button>
+                    <button data-type="game">Games</button>
                 </div>
                 <span id="count">Loading…</span>
             </div>
@@ -175,7 +176,7 @@
 
     <script>
         const PAGE = 100;
-        const KIND = { movie: 'Movie', tv: 'Show', book: 'Book', music: 'Album' };
+        const KIND = { movie: 'Movie', tv: 'Show', book: 'Book', music: 'Album', game: 'Game' };
         let items = [];
         let matches = [];
         let shown = 0;
@@ -287,10 +288,11 @@
 
         async function load() {
             try {
-                const [data, books, music] = await Promise.all([
+                const [data, books, music, games] = await Promise.all([
                     getJson('data.json', null),
                     getJson('books.json', { books: [] }),
-                    getJson('music.json', { albums: [] })
+                    getJson('music.json', { albums: [] }),
+                    getJson('games.json', { games: [] })
                 ]);
                 if (!data) throw new Error('data.json missing');
                 const movies = (data.movies || []).map(m => ({ ...m, type: 'movie', date: m.release_date }));
@@ -317,7 +319,14 @@
                         plot: (a.overview || '').trim(), tracks: (a.tracks || []).join(' · '),
                         low: ((a.overview || '') + ' ' + a.artist + ' ' + (a.tracks || []).join(' ')).toLowerCase()
                     }));
-                items = [...screen, ...bookItems, ...albumItems].sort((a, b) => b.date.localeCompare(a.date));
+                const gameItems = (games.games || [])
+                    .filter(g => (g.overview || '').trim())
+                    .map(g => ({
+                        title: g.title, year: g.year, type: 'game', date: g.release_date || '', by: g.developer || g.platforms || '',
+                        plot: g.overview.trim(), tracks: '',
+                        low: (g.overview + ' ' + (g.developer || '') + ' ' + (g.platforms || '')).toLowerCase()
+                    }));
+                items = [...screen, ...bookItems, ...albumItems, ...gameItems].sort((a, b) => b.date.localeCompare(a.date));
                 update();
             } catch (error) {
                 countEl.textContent = '';

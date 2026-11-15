@@ -61,23 +61,37 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: python fetch_music.py
       
+      # RAWG's free tier is 20,000 requests a month, so games refresh once a day (the 00:00 UTC run) or on manual runs.
+      # Skipped silently until the RAWG_KEY secret exists.
+      - name: Fetch RAWG data (games)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          RAWG_KEY: ${{ secrets.RAWG_KEY }}
+        run: |
+          if [ -z "$RAWG_KEY" ]; then echo "RAWG_KEY secret not set; skipping games"; exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(date -u +%H)" != "00" ]; then echo "not the daily games run"; exit 0; fi
+          python fetch_games.py
+      
       # Movie themes are refreshed on the ROG (refresh_themes.sh, Ollama bge-m3). Books and music are done here.
-      - name: Refresh book & music themes
+      - name: Refresh book, music & game themes
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
           FASTEMBED_CACHE_PATH: /tmp/fastembed_cache
         run: |
-          python refresh_media_themes.py books
-          python refresh_media_themes.py music
+          for m in books music games; do
+            [ -f themes_$m.json ] || [ -f centroids_$m.npy ] || { echo "no themes built for $m yet"; continue; }
+            python refresh_media_themes.py $m
+          done
       
       - name: Commit data changes
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data.json books.json music.json cache/ \
-            themes_books.json labels_books.json embeddings_books.npy embed_ids_books.json \
-            themes_music.json labels_music.json embeddings_music.npy embed_ids_music.json
+          git add data.json cache/
+          for f in books.json music.json games.json themes_*.json labels_*.json embeddings_*.npy embed_ids_*.json; do
+            [ -f "$f" ] && git add "$f"
+          done
           if git diff --staged --quiet; then
             echo "No data changes"
           else

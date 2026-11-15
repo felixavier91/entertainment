@@ -250,7 +250,7 @@
                 padding: 8px 10px !important;
                 justify-content: center;
                 white-space: nowrap;
-                flex: 1 1 calc(25% - 6px);
+                flex: 1 1 calc(33% - 6px);
                 min-width: 0;
             }
             
@@ -800,27 +800,9 @@
             
             <!-- Sort and Search Controls -->
             <div class="mobile-row-1">
-                <!-- Row 1: Sort buttons -->
-                <div class="filter-row-sort" style="margin-bottom: 10px;">
-                    <div style="display: flex; gap: 8px; justify-content: space-between;">
-                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center; flex: 1;">
-                            <input type="radio" name="sortOrder" value="recent" checked style="cursor: pointer;">
-                            <span>📅 Most Recent</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center; flex: 1;">
-                            <input type="radio" name="sortOrder" value="reviews" style="cursor: pointer;">
-                            <span id="sortCountLabel">💬 Most Reviewed</span>
-                        </label>
-                        <label id="sortRatingLabel" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center; flex: 1;">
-                            <input type="radio" name="sortOrder" value="rating" style="cursor: pointer;">
-                            <span>⭐ Highest Rated</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <!-- Row 2: Content type -->
+                <!-- Row 1: Content type -->
                 <div class="filter-row-content-type" style="margin-bottom: 10px;">
-                    <div style="display: flex; gap: 8px; justify-content: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
                         <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center;">
                             <input type="radio" name="contentType" value="movies" checked style="cursor: pointer;">
                             <span>🎬 Movies</span>
@@ -836,6 +818,28 @@
                         <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center;">
                             <input type="radio" name="contentType" value="music" style="cursor: pointer;">
                             <span>🎵 Music</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center;">
+                            <input type="radio" name="contentType" value="games" style="cursor: pointer;">
+                            <span>🎮 Games</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Row 2: Sort buttons -->
+                <div class="filter-row-sort" style="margin-bottom: 10px;">
+                    <div style="display: flex; gap: 8px; justify-content: space-between;">
+                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center; flex: 1;">
+                            <input type="radio" name="sortOrder" value="recent" checked style="cursor: pointer;">
+                            <span>📅 Most Recent</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center; flex: 1;">
+                            <input type="radio" name="sortOrder" value="reviews" style="cursor: pointer;">
+                            <span id="sortCountLabel">💬 Most Reviewed</span>
+                        </label>
+                        <label id="sortRatingLabel" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #2a2a2a; border: 2px solid #555; border-radius: 20px; cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; justify-content: center; flex: 1;">
+                            <input type="radio" name="sortOrder" value="rating" style="cursor: pointer;">
+                            <span>⭐ Highest Rated</span>
                         </label>
                     </div>
                 </div>
@@ -1265,14 +1269,19 @@
             togglePreview(b, b.dataset.preview);
         }, true);
         
+        const metaColor = m => m >= 75 ? '#1f7a3a' : m >= 50 ? '#b7791f' : '#b91c1c';
         function mediaCard(item) {
-            const isBook = item.type === 'book';
+            const isBook = item.type === 'book', isGame = item.type === 'game';
+            const sub = isBook ? item.author : isGame ? (item.developer || item.platforms) : item.artist;
             const cover = item.poster
-                ? `<img src="${item.poster}" alt="${esc(item.title)}" loading="lazy" style="width: 100%; height: 450px; object-fit: cover; display: block;" onerror="this.outerHTML = this.nextElementSibling.innerHTML"><template>${COVER_FALLBACK(item.title, isBook ? item.author : item.artist)}</template>`
-                : COVER_FALLBACK(item.title, isBook ? item.author : item.artist);
+                ? `<img src="${item.poster}" alt="${esc(item.title)}" loading="lazy" style="width: 100%; height: 450px; object-fit: cover; display: block;" onerror="this.outerHTML = this.nextElementSibling.innerHTML"><template>${COVER_FALLBACK(item.title, sub)}</template>`
+                : COVER_FALLBACK(item.title, sub);
             
             let badge = '';
-            if (isBook) {
+            if (isGame) {
+                if (item.metacritic) badge = { text: `Metacritic ${item.metacritic}`, color: metaColor(item.metacritic) };
+                else if (item.rating) badge = { text: `★ ${item.rating.toFixed(1)}`, color: '#444' };
+            } else if (isBook) {
                 if (item.ebook === 'public') badge = { text: '📖 Read free', color: '#1f7a3a' };
                 else if (item.ebook === 'borrowable') badge = { text: '📚 Borrow', color: '#1d4ed8' };
                 else if (item.y) badge = { text: `★ ${item.y.toFixed(1)}`, color: '#444' };
@@ -1283,7 +1292,20 @@
             const chip = (text, color) => `<span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 4px; margin-left: 4px; display: inline-block; font-size: 11px; font-weight: 600;">${text}</span>`;
             
             let details;
-            if (isBook) {
+            if (isGame) {
+                const stores = (item.stores || []).map(st => `<a href="${esc(st.url)}" target="_blank" rel="noopener" style="color: #9cc4ff;">${esc(st.name)}</a>`).join(' · ');
+                details = `
+                    <p style="margin: 4px 0;"><strong>Developer:</strong> ${esc(item.developer || 'N/A')}${item.publisher ? ' · ' + esc(item.publisher) : ''}</p>
+                    <p style="margin: 4px 0;"><strong>Released:</strong> ${fmtDate(item.releaseDate)}</p>
+                    <p style="margin: 4px 0;"><strong>Platforms:</strong> ${esc(item.platforms || 'N/A')}</p>
+                    <p style="margin: 4px 0;"><strong>Metacritic:</strong> ${item.metacritic ? '🟩 ' + item.metacritic + '/100' : 'N/A'}</p>
+                    <p style="margin: 4px 0;"><strong>Player Rating:</strong> ${item.rating ? `⭐ ${item.rating.toFixed(1)}/5 (${(item.ratings_count || 0).toLocaleString()} ratings)` : 'N/A'}</p>
+                    <p style="margin: 4px 0;"><strong>Players:</strong> 👥 ${item.x ? item.x.toLocaleString() : 'N/A'} on RAWG</p>
+                    <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}</p>
+                    ${item.playtime ? `<p style="margin: 4px 0;"><strong>Average Playtime:</strong> ${item.playtime} h</p>` : ''}
+                    ${item.esrb ? `<p style="margin: 4px 0;"><strong>ESRB:</strong> ${esc(item.esrb)}</p>` : ''}
+                    <p style="margin: 8px 0;"><strong>Get it:</strong> ${stores || `<a href="https://rawg.io/games/${esc(item.slug || '')}" target="_blank" rel="noopener" style="color: #9cc4ff;">RAWG</a>`}</p>`;
+            } else if (isBook) {
                 const links = [`<a href="https://openlibrary.org/works/${item.id}" target="_blank" rel="noopener" style="color: #9cc4ff;">Open Library</a>`];
                 if (item.ia && item.ebook !== 'no_ebook' && item.ebook !== 'printdisabled') links.push(`<a href="https://archive.org/details/${item.ia}" target="_blank" rel="noopener" style="color: #9cc4ff;">${item.ebook === 'public' ? 'Read on archive.org' : 'Borrow on archive.org'}</a>`);
                 details = `
@@ -1316,7 +1338,7 @@
                     ${badgeHTML}
                     <div class="card-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s; overflow-y: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;">
                         <h3 style="margin: 0 0 12px 0; color: white; font-size: 18px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">${esc(item.title)}</h3>
-                        <p style="margin: 0 0 12px 0; color: #fff; line-height: 1.5; font-size: 13px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${esc(item.overview) || (isBook ? 'No description available.' : 'No notes on this one yet.')}</p>
+                        <p style="margin: 0 0 12px 0; color: #fff; line-height: 1.5; font-size: 13px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${esc(item.overview) || (isBook || isGame ? 'No description available.' : 'No notes on this one yet.')}</p>
                         <div style="color: #fff; font-size: 13px; line-height: 1.8; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${details}</div>
                     </div>
                 </div>`;
@@ -1334,13 +1356,15 @@
             const totalTV = data.tv.length;
             const totalBooks = (data.books || []).length;
             const totalMusic = (data.music || []).length;
-            const totalItems = totalMovies + totalTV + totalBooks + totalMusic;
+            const totalGames = (data.games || []).length;
+            const totalItems = totalMovies + totalTV + totalBooks + totalMusic + totalGames;
             
             const parts = [];
             if (totalMovies) parts.push(`${totalMovies} movie${totalMovies !== 1 ? 's' : ''}`);
             if (totalTV) parts.push(`${totalTV} TV show${totalTV !== 1 ? 's' : ''}`);
             if (totalBooks) parts.push(`${totalBooks} book${totalBooks !== 1 ? 's' : ''}`);
             if (totalMusic) parts.push(`${totalMusic} album${totalMusic !== 1 ? 's' : ''}`);
+            if (totalGames) parts.push(`${totalGames} game${totalGames !== 1 ? 's' : ''}`);
             itemCount.textContent = totalItems === 0 ? 'No items match filters' : 'Showing ' + parts.join(' and ');
             
             // Get today's date for filtering
@@ -1348,7 +1372,7 @@
             today.setHours(0, 0, 0, 0);
             
             // Filter out future releases and combine
-            let allItems = [...data.movies, ...data.tv, ...(data.books || []), ...(data.music || [])]
+            let allItems = [...data.movies, ...data.tv, ...(data.books || []), ...(data.music || []), ...(data.games || [])]
                 .filter(item => {
                     // Get the release date
                     const releaseDate = item.releaseDate || item.release_date || item.first_air_date;
@@ -1396,7 +1420,7 @@
             }
             
             container.innerHTML = allItems.map(item => {
-                if (item.type === 'book' || item.type === 'music') return mediaCard(item);
+                if (item.type === 'book' || item.type === 'music' || item.type === 'game') return mediaCard(item);
                 const posterUrl = item.poster_path 
                     ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
                     : 'https://via.placeholder.com/300x450?text=No+Poster';
@@ -1894,9 +1918,10 @@
                     const loadedData = await response.json();
                     
                     // Books and music live in their own files; a missing file just leaves that list empty
-                    const [booksRes, musicRes] = await Promise.allSettled([
+                    const [booksRes, musicRes, gamesRes] = await Promise.allSettled([
                         fetch('books.json').then(r => r.ok ? r.json() : { books: [] }),
-                        fetch('music.json').then(r => r.ok ? r.json() : { albums: [] })
+                        fetch('music.json').then(r => r.ok ? r.json() : { albums: [] }),
+                        fetch('games.json').then(r => r.ok ? r.json() : { games: [] })
                     ]);
                     
                     // Transform data structure if needed (tv_shows → tv)
@@ -1904,7 +1929,8 @@
                         movies: loadedData.movies || [],
                         tv: loadedData.tv_shows || loadedData.tv || [],
                         books: booksRes.status === 'fulfilled' ? (booksRes.value.books || []) : [],
-                        music: musicRes.status === 'fulfilled' ? (musicRes.value.albums || []) : []
+                        music: musicRes.status === 'fulfilled' ? (musicRes.value.albums || []) : [],
+                        games: gamesRes.status === 'fulfilled' ? (gamesRes.value.games || []) : []
                     };
                     
                     // Populate genre dropdown with unique genres
@@ -2330,7 +2356,31 @@
                 link: a.link
             }));
             
-            allLoadedData = { movies: filteredMovies, tv: filteredTv, books: filteredBooks, music: filteredMusic };
+            const filteredGames = (rawJsonData.games || []).filter(inYears).map(g => ({
+                id: g.id,
+                slug: g.slug,
+                title: g.title,
+                x: g.added,                   // "most reviewed" = most players (RAWG library adds)
+                y: g.metacritic ? g.metacritic / 10 : (g.rating ? g.rating * 2 : 0),   // 0–10 for sorting
+                rating: g.rating,
+                ratings_count: g.ratings_count,
+                metacritic: g.metacritic,
+                year: g.year,
+                genres: g.genres,
+                overview: g.overview,
+                releaseDate: g.release_date,
+                type: 'game',
+                subtype: g.family,            // pc | playstation | xbox | nintendo | other
+                poster: g.image,
+                platforms: g.platforms,
+                developer: g.developer,
+                publisher: g.publisher,
+                playtime: g.playtime,
+                esrb: g.esrb,
+                stores: g.stores
+            }));
+            
+            allLoadedData = { movies: filteredMovies, tv: filteredTv, books: filteredBooks, music: filteredMusic, games: filteredGames };
             
             // Check if there's an active search term and reapply it
             const searchTerm = document.getElementById('searchFilter').value.toLowerCase().trim();
@@ -2388,8 +2438,9 @@
                 const hit = (...fields) => fields.some(f => f && String(f).toLowerCase().includes(searchTerm));
                 const searchedBooks = allLoadedData.books.filter(item => hit(item.title, item.author, item.overview, item.genres, item.year));
                 const searchedMusic = allLoadedData.music.filter(item => hit(item.title, item.artist, item.overview, item.genres, item.label, (item.tracks || []).join(' | '), item.year));
+                const searchedGames = allLoadedData.games.filter(item => hit(item.title, item.developer, item.publisher, item.overview, item.genres, item.platforms, item.year));
                 
-                displayData = { movies: searchedMovies, tv: searchedTv, books: searchedBooks, music: searchedMusic };
+                displayData = { movies: searchedMovies, tv: searchedTv, books: searchedBooks, music: searchedMusic, games: searchedGames };
             }
             
             // Filter by genre if selected
@@ -2399,7 +2450,8 @@
                     movies: displayData.movies.filter(hasGenre),
                     tv: displayData.tv.filter(hasGenre),
                     books: displayData.books.filter(hasGenre),
-                    music: displayData.music.filter(hasGenre)
+                    music: displayData.music.filter(hasGenre),
+                    games: displayData.games.filter(hasGenre)
                 };
             }
             
@@ -2408,7 +2460,8 @@
                 movies: currentContentType === 'movies' ? displayData.movies : [],
                 tv: currentContentType === 'tv' ? displayData.tv : [],
                 books: currentContentType === 'books' ? displayData.books : [],
-                music: currentContentType === 'music' ? displayData.music : []
+                music: currentContentType === 'music' ? displayData.music : [],
+                games: currentContentType === 'games' ? displayData.games : []
             };
             
             // Display
@@ -2505,7 +2558,7 @@
             const ratingLabel = document.getElementById('sortRatingLabel');
             const labels = {
                 movies: '💬 Most Reviewed', tv: '💬 Most Reviewed',
-                books: '👥 Most Readers', music: '❤️ Most Fans'
+                books: '👥 Most Readers', music: '❤️ Most Fans', games: '👥 Most Players'
             };
             countLabel.textContent = labels[currentContentType] || '💬 Most Reviewed';
             // Deezer has no ratings, so "Highest Rated" makes no sense for music
