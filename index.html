@@ -1344,7 +1344,7 @@
                     <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}</p>
                     ${item.playtime ? `<p style="margin: 4px 0;"><strong>Average Playtime:</strong> ${item.playtime} h</p>` : ''}
                     ${item.esrb ? `<p style="margin: 4px 0;"><strong>ESRB:</strong> ${esc(item.esrb)}</p>` : ''}
-                    <p style="margin: 8px 0;"><strong>Get it:</strong> ${stores || `<a href="https://rawg.io/games/${esc(item.slug || '')}" target="_blank" rel="noopener" style="color: #9cc4ff;">RAWG</a>`}</p>`;
+                    ${stores ? `<p style="margin: 8px 0;"><strong>Get it:</strong> ${stores}</p>` : ''}`;
             } else if (isBook) {
                 const links = [`<a href="https://openlibrary.org/works/${item.id}" target="_blank" rel="noopener" style="color: #9cc4ff;">Open Library</a>`];
                 if (item.ia && item.ebook !== 'no_ebook' && item.ebook !== 'printdisabled') links.push(`<a href="https://archive.org/details/${item.ia}" target="_blank" rel="noopener" style="color: #9cc4ff;">${item.ebook === 'public' ? 'Read on archive.org' : 'Borrow on archive.org'}</a>`);
@@ -1382,7 +1382,7 @@
                     <div class="card-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s; overflow-y: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;">
                         <h3 style="margin: 0 0 12px 0; color: white; font-size: 18px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">${esc(item.title)}</h3>
                         <p style="margin: 0 0 12px 0; color: #fff; line-height: 1.5; font-size: 13px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${esc(item.overview) || (isBook || isGame ? 'No description available.' : 'No notes on this one yet.')}</p>
-                        <div style="color: #fff; font-size: 13px; line-height: 1.8; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${details}${tasteButtons(item)}</div>
+                        <div style="color: #fff; font-size: 13px; line-height: 1.8; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${details}${tasteButtons(item)}${searchLinks(item)}</div>
                     </div>
                 </div>`;
         }
@@ -1428,6 +1428,20 @@
             const k = itemKey(it), t = taste[k] || 0;
             return `<div class="taste" data-key="${k}"><button class="up${t === 1 ? ' on' : ''}" data-rate="1">👍 Liked it</button><button class="down${t === -1 ? ' on' : ''}" data-rate="-1">👎 Not for me</button></div>`;
         };
+        // Google-search the title, aimed at a specific browser (useful on phones/tablets where the default browser differs)
+        const SEARCH_HINT = { movie: 'movie', tv: 'tv show', book: 'book', music: 'album', game: 'game' };
+        function searchLinks(it) {
+            const who = it.type === 'book' ? it.author : it.type === 'music' ? it.artist : '';
+            const q = encodeURIComponent(`${it.title} ${who || ''} ${it.year || ''} ${SEARCH_HINT[it.type] || ''}`.replace(/\s+/g, ' ').trim());
+            const g = `https://www.google.com/search?q=${q}`;
+            const a = (href, label, title) => `<a href="${href}" target="_blank" rel="noopener" title="${title}" style="color: #9cc4ff; text-decoration: none; padding: 4px 9px; border: 1px solid #555; border-radius: 12px; font-size: 12px; background: rgba(0,0,0,0.35);">${label}</a>`;
+            return `<div class="search-links" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.15); font-size: 12px; color: #bbb;">🔎 Google it in ` +
+                a(`brave://open-url?url=${encodeURIComponent(g)}`, 'Brave', 'Open the search in Brave') +
+                a(`googlechrome://www.google.com/search?q=${q}`, 'Chrome', 'Open the search in Chrome') +
+                a(`microsoft-edge:${g}`, 'Edge', 'Open the search in Edge') +
+                a(g, 'Safari', 'Open the search in the current browser (Safari on Apple devices)') + '</div>';
+        }
+        
         document.addEventListener('click', e => {
             const b = e.target.closest('.taste button');
             if (!b) return;
@@ -1518,7 +1532,7 @@
                 (why ? `<div class="why">Because you liked ${esc(why)}</div>` : '') +
                 (it.overview ? `<p>${highlight(it.overview, term)}</p>` : '') +
                 (it.tracks && it.tracks.length ? `<p class="tracks">Tracks: ${highlight(it.tracks.join(' · '), term)}</p>` : '') +
-                tasteButtons(it) + '</div>';
+                tasteButtons(it) + searchLinks(it) + '</div>';
         }
         function renderDescMore() {
             const container = document.getElementById('cardsContainer');
@@ -1796,6 +1810,7 @@
                                 <p style="margin: 4px 0;"><strong>Cast:</strong> ${item.actors || 'N/A'}</p>
                                 ${streamingHTML}
                                 ${tasteButtons(item)}
+                                ${searchLinks(item)}
                             </div>
                         </div>
                     </div>

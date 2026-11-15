@@ -24,6 +24,8 @@ KEY = os.environ.get('RAWG_KEY')
 if not KEY:
     raise SystemExit('RAWG_KEY environment variable not set (free key at https://rawg.io/apidocs)')
 PAGE_SIZE = 40
+MIN_RATING = 3.0                 # RAWG player rating (0–5) a game needs
+NSFW_RE = re.compile(r'\b(nsfw|hentai|porn|erotic|sex(y|ual)?|adult only|strip)\b', re.I)
 MAX_PAGES_PER_YEAR = 10          # 400 games per year at most
 DELAY = 0.25
 
@@ -90,6 +92,8 @@ for year in range(START_YEAR, CURRENT_YEAR + 1):
             if not g.get('background_image') or (g.get('released') or '') > TODAY: continue
             esrb = (g.get('esrb_rating') or {}).get('name') or ''
             if esrb == 'Adults Only': continue
+            if (g.get('rating') or 0) < MIN_RATING: continue
+            if NSFW_RE.search(g.get('name') or '') or any(NSFW_RE.search(t.get('name') or '') for t in g.get('tags') or []): continue
             found[g['id']] = g; n += 1
         if below or not d.get('next'): break
     print(f'  {year}: ≥{thr} adds → {n} games')
