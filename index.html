@@ -1321,7 +1321,7 @@
             const idx = (parseInt(card.dataset.idx || '0', 10) + parseInt(b.dataset.dir, 10) + shots.length) % shots.length;
             card.dataset.idx = idx;
             const img = card.querySelector('img');
-            if (img) { img.src = shots[idx]; img.style.objectFit = idx === 0 ? 'cover' : 'contain'; }
+            if (img) { img.src = shots[idx]; }
             const c = card.querySelector('.shot-count'); if (c) c.textContent = (idx + 1) + ' / ' + shots.length;
             const cap = card.querySelector('.game-caption'); if (cap) cap.style.opacity = idx === 0 ? '1' : '0.35';
         }, true);
