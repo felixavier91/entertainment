@@ -1401,9 +1401,9 @@
                 <div class="shot-count" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 10px;">1 / ${shots.length}</div>` : '';
             const shotData = shots.length > 1 ? ` data-shots='${esc(JSON.stringify(shots))}' data-idx="0"` : '';
             
-            // Games (key art has no lettering) and albums (sleeve lettering is all over the place) get the name printed on the card
-            const captionSub = isGame ? `${item.year || ''}${item.developer ? ' · ' + esc(item.developer) : ''}` : `${esc(item.artist)}${item.year ? ' · ' + item.year : ''}`;
-            const caption = (isGame || item.type === 'music') ? `<div class="game-caption" style="position: absolute; left: 0; right: 0; bottom: 0; padding: 70px 14px 14px; transition: opacity 0.2s; background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.55) 55%, transparent); color: #fff; pointer-events: none;"><div style="font-size: 19px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.9); padding-right: ${badge ? '120px' : '0'};">${esc(item.title)}</div><div style="font-size: 12px; color: #ccc; margin-top: 3px;">${captionSub}</div></div>` : '';
+            // Games (key art has no lettering), albums and books (cover lettering is all over the place or missing) get the name printed on the card
+            const captionSub = isGame ? `${item.year || ''}${item.developer ? ' · ' + esc(item.developer) : ''}` : isBook ? `${esc(item.author)}${item.year ? ' · ' + item.year : ''}` : `${esc(item.artist)}${item.year ? ' · ' + item.year : ''}`;
+            const caption = (isGame || isBook || item.type === 'music') ? `<div class="game-caption" style="position: absolute; left: 0; right: 0; bottom: 0; padding: 70px 14px 14px; transition: opacity 0.2s; background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.55) 55%, transparent); color: #fff; pointer-events: none;"><div style="font-size: 19px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.9); padding-right: ${badge ? '120px' : '0'};">${esc(item.title)}</div><div style="font-size: 12px; color: #ccc; margin-top: 3px;">${captionSub}</div></div>` : '';
             return `
                 <div class="movie-card"${shotData} style="position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; background: #000;">
                     ${cover}
