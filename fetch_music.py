@@ -3,7 +3,7 @@
 Deezer data fetcher → music.json
 Albums and EPs released from START_YEAR to today, ranked by how many Deezer users follow them
 ("fans"). Artists are discovered from the Deezer charts of every genre and then by walking
-"related artists". Descriptions come from Wikipedia. No API key needed.
+"related artists". No API key needed. (Wikipedia album notes exist but are off by default.)
 
 Incremental: cache/albums.json keeps every album ever looked at, so a rerun only costs requests
 for new albums, for albums whose fan count is stale, and for new Wikipedia lookups.
@@ -27,7 +27,7 @@ MAX_ARTISTS = int(os.environ.get('MAX_ARTISTS', 2500))
 MIN_ARTIST_FANS = 40_000         # related artists below this are not explored
 REFRESH_DAYS = 30                # how often an old album's fan count is re-read
 RECENT_YEARS = 1                 # albums this new are re-read every run
-WIKI_DELAY = 0.3                 # ~3 Wikipedia searches per second overall
+WIKI_DELAY = 1.0                 # one Wikipedia summary per second; anything faster gets this address throttled
 TYPES = ('album', 'ep')
 KIDS_GENRE_ID = 95               # Deezer's "Kids" genre: never seeded, never kept
 KIDS_RE = re.compile(r"\b(kids?|children|nursery|lullab|toddler|baby shark|cocomelon|disney junior|sing-?along|bedtime)\b", re.I)
@@ -213,43 +213,50 @@ print(f'kept: {len(kept)} after fan thresholds and dedupe\n')
 
 # ============= 6. WIKIPEDIA DESCRIPTIONS =============
 def wikipedia(title, artist):
-    """Notes for an album, '' when Wikipedia has no article for it, None when the lookup itself failed (retried next run)."""
-    d = None
-    for attempt in range(3):
-        try:
-            throttle(1.0 / WIKI_DELAY)
-            r = session.get('https://en.wikipedia.org/w/api.php', timeout=60, params=dict(
-                action='query', generator='search', gsrsearch=f'"{title}" {artist} album', gsrlimit=1,
-                prop='extracts|description', exintro=1, explaintext=1, exsentences=5, format='json', formatversion=2))
-            if r.status_code == 429 or r.status_code >= 500:
-                time.sleep(20 * (attempt + 1)); continue
-            d = r.json()
-            if d.get('error'):
-                time.sleep(20 * (attempt + 1)); continue
+    """Notes for an album from the Wikipedia page summary (light endpoint). Tries the usual page titles in turn.
+    Returns '' when there is no article, None when Wikipedia throttled us (left unknown, retried next run)."""
+    import urllib.parse
+    last = artist.split()[-1].lower()
+    for guess in (f'{title} ({artist} album)', f'{title} (album)', title):
+        url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + urllib.parse.quote(guess.replace(' ', '_'), safe='')
+        for attempt in range(3):
+            try:
+                throttle(1.0 / WIKI_DELAY)
+                r = session.get(url, timeout=30, headers={'Accept': 'application/json'})
+            except requests.RequestException:
+                time.sleep(5); continue
+            if r.status_code == 429:
+                wait = min(int(r.headers.get('retry-after') or 15), 60)
+                with _lock: wiki_state['throttled'] += 1
+                time.sleep(wait); continue
             break
-        except (requests.RequestException, ValueError):
-            time.sleep(10 * (attempt + 1))
-    else:
-        return None
-    pages = (d or {}).get('query', {}).get('pages') or []
-    if not pages: return ''
-    p = pages[0]
-    kind = (p.get('description') or '').lower()
-    if not re.search(r'album|\bep\b|mixtape|soundtrack|compilation', kind): return ''
-    text = (p.get('extract') or '').strip()
-    return re.sub(r'\s*\n\s*', ' ', text)[:1500]
+        else:
+            return None
+        if r.status_code != 200: continue
+        try: d = r.json()
+        except ValueError: continue
+        if d.get('type') == 'disambiguation': continue
+        desc = (d.get('description') or '').lower(); extract = (d.get('extract') or '').strip()
+        if re.search(r'album|\bep\b|mixtape|soundtrack|compilation', desc) and (last in extract.lower() or artist.lower() in desc):
+            return re.sub(r'\s*\n\s*', ' ', extract)[:1500]
+    return ''
+
+wiki_state = {'throttled': 0}
+WIKI_BUDGET = int(os.environ.get('WIKI_BUDGET_MIN', 0)) * 60     # album notes are OFF by default (an album needs no synopsis); set WIKI_BUDGET_MIN to enable
 
 albums, wiki_calls = [], 0
-need = [aid for aid in kept.values() if old_desc.get(str(aid)) is None]
-print(f'wikipedia: {len(need)} albums need a lookup')
-for start in range(0, len(need), 300):
-    chunk = need[start:start + 300]
-    failed = 0
-    for aid, text in zip(chunk, pmap(lambda i: wikipedia(cache[str(i)]['title'], candidates[i]['_artist']['name']), chunk, workers=2)):
-        wiki_calls += 1
-        if text is None: failed += 1; continue           # lookup failed: leave it unknown so the next run retries
-        old_desc[str(aid)] = text
-    print(f'  wikipedia {start + len(chunk)}/{len(need)}' + (f' ({failed} failed)' if failed else ''))
+need = [aid for aid in kept.values() if old_desc.get(str(aid)) is None] if WIKI_BUDGET > 0 else []
+print(f'wikipedia: {len(need)} albums need a lookup' if WIKI_BUDGET > 0 else 'wikipedia notes: off')
+t_wiki = time.monotonic(); streak = 0
+for n, aid in enumerate(need):
+    if time.monotonic() - t_wiki > WIKI_BUDGET:
+        print(f'  wikipedia: budget of {WIKI_BUDGET // 60} min used, {len(need) - n} albums left for the next run'); break
+    if streak >= 5:
+        print(f'  wikipedia: throttled {streak} times in a row, giving up for this run ({len(need) - n} albums left)'); break
+    text = wikipedia(cache[str(aid)]['title'], candidates[aid]['_artist']['name']); wiki_calls += 1
+    if text is None: streak += 1; continue               # throttled: leave it unknown so the next run retries
+    streak = 0; old_desc[str(aid)] = text
+    if n % 100 == 99: print(f'  wikipedia {n + 1}/{len(need)}')
 for n, aid in enumerate(kept.values()):
     c, a = cache[str(aid)], candidates[aid]
     desc = old_desc.get(str(aid))

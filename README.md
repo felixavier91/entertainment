@@ -102,12 +102,13 @@ Thresholds and the genre mapping are at the top of the script.
 5. Keep albums with `fans ≥ 300 × (years old + 1)`; deluxe/remaster variants collapse into the
    most-followed one (`norm_title`). Kids music is dropped: Deezer's "Kids" genre is never seeded or kept, and
    titles/artists matching `KIDS_RE` (nursery, lullaby, CoComelon, Disney Junior, sing-along…) are skipped.
-6. Wikipedia extract for each kept album (accepted only when Wikipedia calls the page an album/EP/
-   mixtape…). Reused from the previous `music.json`.
+6. (Off by default.) Wikipedia album notes: `WIKI_BUDGET_MIN=25 python fetch_music.py` spends up to 25 min per run on
+   the Wikipedia summary endpoint, which throttles anonymous callers hard. Albums need no synopsis, so the site
+   shows the track list instead and the themes are built from artist, title, genres and track names.
 
 **Per album:** title, artist, release date, fans (= "Most Fans"), genres (album genres, else the
 artist's chart genre), label, track titles, track count, duration, explicit flag, cover, preview
-MP3, Deezer link. There are no ratings, so the "Highest Rated" pill is hidden for music.
+MP3, Deezer link. There are no ratings, so the "Highest Rated" pill is hidden for music. No descriptions either: the card shows the track list.
 
 The first run is slow (≈50k Deezer calls, 1–3 h). Later runs cost ~5–15k calls.
 

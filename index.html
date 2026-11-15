@@ -1404,7 +1404,7 @@
                     ${badgeHTML}
                     <div class="card-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s; overflow-y: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;">
                         <h3 style="margin: 0 0 12px 0; color: white; font-size: 18px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">${esc(item.title)}</h3>
-                        <p style="margin: 0 0 12px 0; color: #fff; line-height: 1.5; font-size: 13px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${esc(item.overview) || (isBook || isGame ? 'No description available.' : 'No notes on this one yet.')}</p>
+                        <p style="margin: 0 0 12px 0; color: #fff; line-height: 1.5; font-size: 13px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${esc(item.overview) || (isBook || isGame ? 'No description available.' : '')}</p>
                         <div style="color: #fff; font-size: 13px; line-height: 1.8; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${details}${tasteButtons(item)}${searchLinks(item)}</div>
                     </div>
                 </div>`;
