@@ -9,7 +9,7 @@ workflow runs this once a day.
 Incremental: descriptions already in games.json are reused, so a run only costs the per-year list pages
 plus one request per new game.
 """
-import json, os, re, sys, time
+import json, os, re, sys, time, io
 from datetime import datetime, date
 import requests
 
@@ -73,6 +73,29 @@ def clean(text):
     text = re.sub(r'(?<=[a-z.!?])([A-Z]{3,}(?: [A-Z&]{2,}){0,5})(?=[A-Z][a-z])', r' \1: ', text)
     return text.strip()[:1500]
 
+# ============= SCREENSHOT DEDUPE =============
+# RAWG's cover is usually one of the screenshots under another URL. Compare tiny thumbnails by perceptual hash
+# (8×8 average hash) and drop pictures that look like the cover or like an earlier picture. CDN requests, not API quota.
+def thumb_hash(url):
+    try:
+        from PIL import Image
+        small = url.replace('https://media.rawg.io/media/', 'https://media.rawg.io/media/resize/200/-/')
+        r = session.get(small, timeout=30)
+        if r.status_code != 200: return None
+        im = Image.open(io.BytesIO(r.content)).convert('L').resize((8, 8))
+        px = list(im.getdata()); avg = sum(px) / 64
+        return sum(1 << i for i, p in enumerate(px) if p > avg)
+    except Exception:
+        return None
+def distinct_shots(urls):
+    kept, hashes = [], []
+    for u in urls:
+        if u in kept: continue
+        hsh = thumb_hash(u)
+        if hsh is not None and any(bin(hsh ^ o).count('1') <= 8 for o in hashes): continue
+        kept.append(u); hashes.append(hsh if hsh is not None else -1)
+    return kept
+
 # ============= PREVIOUS RUN =============
 old = {}
 if os.path.exists('games.json'):
@@ -107,6 +130,11 @@ print(f'\n✅ {len(found)} games listed ({calls} calls)\n')
 games, fetched = [], 0
 for i, (gid, g) in enumerate(found.items()):
     prev = old.get(gid)
+    raw_shots = [sh['image'] for sh in (g.get('short_screenshots') or []) if sh.get('image')][:6]
+    if prev and prev.get('shots_checked') and prev.get('screenshots') is not None and raw_shots[:1] == [prev.get('image')] and set(raw_shots) >= set(prev['screenshots']):
+        shots = prev['screenshots']
+    else:
+        shots = distinct_shots(raw_shots) if raw_shots else []
     if prev and prev.get('overview') is not None and prev.get('developer') is not None:
         desc, dev, pub, stores, web = prev['overview'], prev['developer'], prev.get('publisher'), prev.get('stores', []), prev.get('website')
     else:
@@ -127,7 +155,8 @@ for i, (gid, g) in enumerate(found.items()):
         'title': g.get('name'),
         'overview': desc,
         'image': g.get('background_image'),
-        'screenshots': [sh['image'] for sh in (g.get('short_screenshots') or []) if sh.get('image')][:6],   # key art first, then gameplay
+        'screenshots': shots,            # key art first, then gameplay pictures that actually differ from it
+        'shots_checked': True,
         'release_date': g.get('released'),
         'year': int((g.get('released') or '0')[:4] or 0),
         'rating': g.get('rating') or None,              # RAWG users, 0–5
