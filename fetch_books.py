@@ -119,6 +119,14 @@ def description_from_work(work):
     d = re.sub(r'\s*\n\s*', ' ', d).strip()
     return d[:1500]
 
+def tidy(text):
+    """Open Library blurbs are markdown-ish: drop emphasis marks, links and leftover escapes."""
+    text = re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', text or '')
+    text = re.sub(r'\\([*_#\[\]])', r'\1', text)
+    text = re.sub(r'[*_]{1,3}(?=\S)|(?<=\S)[*_]{1,3}', '', text)
+    text = re.sub(r'^\s*#+\s*', '', text)
+    return re.sub(r'\s{2,}', ' ', text).strip()
+
 def wikipedia_description(title, author):
     q = f'"{title}" {author or ""} book'
     d = get('https://en.wikipedia.org/w/api.php', action='query', generator='search', gsrsearch=q, gsrlimit=1,
@@ -185,6 +193,7 @@ for i, (key, doc) in enumerate(docs.items()):
     if SKIP_RE.search(' | '.join(subjects)): skipped += 1; continue
     if i % 100 == 0: print(f'  building {i}/{len(docs)} (work records fetched: {fetched}, wikipedia: {wiki})')
     genres = genres_from(subjects)
+    desc = tidy(desc)
     books.append({
         'id': key,
         'title': doc['title'],
