@@ -96,10 +96,10 @@ Thresholds and the genre mapping are at the top of the script.
 1. Seeds: the album and artist charts of all 28 Deezer genres.
 2. Walk "related artists" biggest-first until `MAX_ARTISTS` (2,500); artists under
    `MIN_ARTIST_FANS` (40k) are not followed. Found artists are remembered in `cache/artists.json`.
-3. Every artist's albums and EPs since 1990 (`record_type` album/ep, no singles/compilations).
+3. Every artist's albums and EPs since 1950 (`record_type` album/ep, no singles/compilations).
 4. `/album/{id}` for fans, genres, label, tracks, first 30-second preview URL → `cache/albums.json`.
    Albums from the last 2 years are re-read once a day, older ones every 30 days.
-5. Keep albums with `fans ≥ 300 × (years old + 1)`; deluxe/remaster variants collapse into the
+5. Keep albums with `fans ≥ 1,000 + 400 × years old` (2026: 1,000 · 2010: 7,400 · 1990: 15,400 · 1950: 31,400); deluxe/remaster variants collapse into the
    most-followed one (`norm_title`). Kids music is dropped: Deezer's "Kids" genre is never seeded or kept, and
    titles/artists matching `KIDS_RE` (nursery, lullaby, CoComelon, Disney Junior, sing-along…) are skipped.
 6. (Off by default.) Wikipedia album notes: `WIKI_BUDGET_MIN=25 python fetch_music.py` spends up to 25 min per run on

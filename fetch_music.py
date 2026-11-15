@@ -16,7 +16,7 @@ import requests
 sys.stdout.reconfigure(line_buffering=True)
 
 # ============= CONFIGURATION =============
-START_YEAR = 1990
+START_YEAR = 1950
 CURRENT_YEAR = datetime.now().year
 TODAY = date.today().isoformat()
 UA = 'new-music (github.com/felixavier91/new-music)'
@@ -34,8 +34,8 @@ KIDS_RE = re.compile(r"\b(kids?|children|nursery|lullab|toddler|baby shark|cocom
 
 def min_fans_for_year(year):
     """Fans an album needs to be listed. Newer albums need fewer.
-    2026: 300 · 2025: 600 · 2020: 2,100 · 2010: 5,100 · 2000: 8,100 · 1990: 11,100"""
-    return 300 * (CURRENT_YEAR - year + 1)
+    2026: 1,000 · 2025: 1,400 · 2020: 3,400 · 2010: 7,400 · 2000: 11,400 · 1990: 15,400 · 1970: 23,400 · 1950: 31,400"""
+    return 1000 + 400 * (CURRENT_YEAR - year)
 
 session = requests.Session()
 session.headers['User-Agent'] = UA
