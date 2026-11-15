@@ -29,6 +29,7 @@ REFRESH_DAYS = 30                # how often an old album's fan count is re-read
 RECENT_YEARS = 1                 # albums this new are re-read every run
 WIKI_DELAY = 1.0                 # one Wikipedia summary per second; anything faster gets this address throttled
 TYPES = ('album', 'ep')
+MB_BUDGET = int(os.environ.get('MB_BUDGET_MIN', 20)) * 60      # seconds per run spent asking MusicBrainz for original release dates (1 req/s)
 KIDS_GENRE_ID = 95               # Deezer's "Kids" genre: never seeded, never kept
 KIDS_RE = re.compile(r"\b(kids?|children|nursery|lullab|toddler|baby shark|cocomelon|disney junior|sing-?along|bedtime)\b", re.I)
 
@@ -244,6 +245,50 @@ def wikipedia(title, artist):
 wiki_state = {'throttled': 0}
 WIKI_BUDGET = int(os.environ.get('WIKI_BUDGET_MIN', 0)) * 60     # album notes are OFF by default (an album needs no synopsis); set WIKI_BUDGET_MIN to enable
 
+# ============= 5b. ORIGINAL RELEASE DATES (MusicBrainz) =============
+# Deezer dates a remaster by the remaster ("Abbey Road (Remastered 2009)" → 2015). MusicBrainz knows the original
+# release date of the release group; ask once per album (1 request/second, as MusicBrainz requires) and cache it.
+DISPLAY_NOISE = re.compile(r'\s*[\(\[][^)\]]*(remaster|deluxe|edition|expanded|anniversary|bonus|reissue|re-issue|super|digital|version|explicit)[^)\]]*[\)\]]', re.I)
+def display_title(t):
+    t = DISPLAY_NOISE.sub('', t)
+    return re.sub(r'\s*[-:–]\s*(remastered|deluxe|expanded|anniversary)[^-:–]*$', '', t, flags=re.I).strip() or t
+def musicbrainz_date(title, artist):
+    """'YYYY-MM-DD' / 'YYYY' of the first release, '' when MusicBrainz has nothing convincing, None when the lookup failed."""
+    q = f'releasegroup:"{display_title(title)}" AND artist:"{artist}" AND (primarytype:album OR primarytype:ep)'
+    for attempt in range(3):
+        try:
+            throttle(1.0)
+            r = session.get('https://musicbrainz.org/ws/2/release-group/', params={'query': q, 'fmt': 'json', 'limit': 5}, timeout=30,
+                            headers={'User-Agent': 'entertainment-site/0.1 (github.com/felixavier91/entertainment)'})
+            if r.status_code == 503 or r.status_code == 429: time.sleep(5 * (attempt + 1)); continue
+            if r.status_code != 200: return ''
+            d = r.json(); break
+        except (requests.RequestException, ValueError):
+            time.sleep(3)
+    else:
+        return None
+    want = norm_title(title); dates = []
+    for rg in d.get('release-groups', []):
+        if int(rg.get('score', 0)) < 85: continue
+        names = [c.get('artist', {}).get('name', '').lower() for c in rg.get('artist-credit', [])]
+        if not any(artist.lower() in n or n in artist.lower() for n in names): continue
+        if norm_title(rg.get('title', '')) != want and not rg.get('title', '').lower().startswith(display_title(title).lower()[:12]): continue
+        if rg.get('first-release-date'): dates.append(rg['first-release-date'])
+    return min(dates) if dates else ''          # earliest matching release group = the original
+
+need_mb = [aid for aid in kept.values() if 'orig' not in cache[str(aid)]]
+print(f'musicbrainz: {len(need_mb)} albums need an original date (budget {MB_BUDGET // 60} min)')
+t_mb = time.monotonic(); mb_calls = 0
+for n, aid in enumerate(need_mb):
+    if time.monotonic() - t_mb > MB_BUDGET:
+        print(f'  musicbrainz: budget used, {len(need_mb) - n} left for the next run'); break
+    c = cache[str(aid)]
+    res = musicbrainz_date(c['title'], c['artist']['name']); mb_calls += 1
+    if res is None: continue
+    c['orig'] = res
+    if n % 100 == 99: print(f'  musicbrainz {n + 1}/{len(need_mb)}'); save_cache()
+save_cache()
+
 albums, wiki_calls = [], 0
 need = [aid for aid in kept.values() if old_desc.get(str(aid)) is None] if WIKI_BUDGET > 0 else []
 print(f'wikipedia: {len(need)} albums need a lookup' if WIKI_BUDGET > 0 else 'wikipedia notes: off')
@@ -264,15 +309,21 @@ for n, aid in enumerate(kept.values()):
     desc = desc or ''
     gen = c['genres'] or a['_artist']['genres'][:2] or (['Reggaeton'] if a.get('genre_id') == 122 else [])
     if not gen and a.get('genre_id') in genres: gen = [genres[a['genre_id']]]
+    orig = (c.get('orig') or '')
+    rel = c['release_date']
+    if orig and int(orig[:4]) < int(rel[:4]):
+        rel = orig if len(orig) == 10 else (orig[:7] + '-01' if len(orig) == 7 else orig[:4] + '-01-01')
     albums.append({
         'id': aid,
-        'title': c['title'],
+        'title': display_title(c['title']),
+        'title_full': c['title'],
         'artist': a['_artist']['name'],
         'artist_id': a['_artist']['id'],
         'overview': desc,
         'cover': c['cover'],
-        'release_date': c['release_date'],
-        'year': int(c['release_date'][:4]),
+        'release_date': rel,
+        'year': int(rel[:4]),
+        'deezer_release_date': c['release_date'],
         'fans': c['fans'],
         'genres': ', '.join(gen) if gen else 'N/A',
         'label': c['label'],
@@ -299,5 +350,5 @@ meta = {
 json.dump({'albums': albums, 'metadata': meta}, open('music.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 print('=' * 50)
 print(f"✅ {meta['total_items']} releases ({meta['total_albums']} albums, {meta['total_eps']} EPs) from {len(artists)} artists")
-print(f"📦 music.json {os.path.getsize('music.json') / 1e6:.1f} MB · cache {os.path.getsize(CACHE) / 1e6:.1f} MB · {calls} Deezer calls · {wiki_calls} Wikipedia lookups")
+print(f"📦 music.json {os.path.getsize('music.json') / 1e6:.1f} MB · cache {os.path.getsize(CACHE) / 1e6:.1f} MB · {calls} Deezer calls · {mb_calls} MusicBrainz lookups · {wiki_calls} Wikipedia lookups")
 print('=' * 50)

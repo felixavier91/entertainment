@@ -102,7 +102,10 @@ Thresholds and the genre mapping are at the top of the script.
 5. Keep albums with `fans ≥ 1,000 + 400 × years old` (2026: 1,000 · 2010: 7,400 · 1990: 15,400 · 1950: 31,400); deluxe/remaster variants collapse into the
    most-followed one (`norm_title`). Kids music is dropped: Deezer's "Kids" genre is never seeded or kept, and
    titles/artists matching `KIDS_RE` (nursery, lullaby, CoComelon, Disney Junior, sing-along…) are skipped.
-6. (Off by default.) Wikipedia album notes: `WIKI_BUDGET_MIN=25 python fetch_music.py` spends up to 25 min per run on
+6. Original release dates from MusicBrainz (no key, 1 request/s, `MB_BUDGET_MIN`, default 20 min per run; cached per
+   album in `cache/`): Deezer dates reissues by the remaster, so "Abbey Road (Remastered 2009)" would land in 2015.
+   The card shows the cleaned title (`display_title`) and the original year; `deezer_release_date` keeps Deezer's.
+7. (Off by default.) Wikipedia album notes: `WIKI_BUDGET_MIN=25 python fetch_music.py` spends up to 25 min per run on
    the Wikipedia summary endpoint, which throttles anonymous callers hard. Albums need no synopsis, so the site
    shows the track list instead and the themes are built from artist, title, genres and track names.
 
