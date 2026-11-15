@@ -1472,20 +1472,21 @@
                 (it.stores || []).filter(st => st !== steamStore && st.url).slice(0, 3).forEach(st => out.push(chipLink(st.url, st.name, '#444')));
                 return out;
             }
-            return [chipLink(`https://www.justwatch.com/us/search?q=${encodeURIComponent(it.title)}`, 'JustWatch', '#c9a227')];
+            return [];                                   // movies & shows: streaming badges only, no platform link
         }
         function linkRow(it) {
             const who = it.type === 'book' ? it.author : it.type === 'music' ? it.artist : '';
             const q = encodeURIComponent(`${it.title} ${who || ''} ${it.year || ''} ${SEARCH_HINT[it.type] || ''}`.replace(/\s+/g, ' ').trim());
             const g = `https://www.google.com/search?q=${q}`;
             const intent = pkg => `intent://www.google.com/search?q=${q}#Intent;scheme=https;package=${pkg};end`;
-            const hrefs = IS_IOS ? { Brave: `brave://open-url?url=${encodeURIComponent(g)}`, Chrome: `googlechrome://www.google.com/search?q=${q}`, Edge: `microsoft-edge-https://www.google.com/search?q=${q}`, Safari: g }
-                : IS_ANDROID ? { Brave: intent('com.brave.browser'), Chrome: intent('com.android.chrome'), Edge: intent('com.microsoft.emmx'), Safari: g }
-                : { Brave: g, Chrome: g, Edge: g, Safari: g };
+            const hrefs = IS_IOS ? { Brave: `brave://open-url?url=${encodeURIComponent(g)}`, Chrome: `googlechrome://www.google.com/search?q=${q}` }
+                : IS_ANDROID ? { Brave: intent('com.brave.browser'), Chrome: intent('com.android.chrome') }
+                : { Brave: g, Chrome: g };
             const browser = (name, href) => `<a href="${href}" target="_blank" rel="noopener" title="Google this in ${name}" style="color: #9cc4ff; text-decoration: none; padding: 4px 10px; border: 1px solid #555; border-radius: 12px; font-size: 12px; background: rgba(0,0,0,0.35); white-space: nowrap;">${name}</a>`;
+            const platform = platformLinks(it);
             return `<div class="link-row" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 10px;">` +
-                platformLinks(it).join('') + `<span style="width: 1px; height: 18px; background: rgba(255,255,255,0.25); margin: 0 2px;"></span>` +
-                ['Brave', 'Chrome', 'Edge', 'Safari'].map(n => browser(n, hrefs[n])).join('') + '</div>';
+                platform.join('') + (platform.length ? `<span style="width: 1px; height: 18px; background: rgba(255,255,255,0.25); margin: 0 2px;"></span>` : '') +
+                ['Brave', 'Chrome'].map(n => browser(n, hrefs[n])).join('') + '</div>';
         }
         
         document.addEventListener('click', e => {
