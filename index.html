@@ -829,9 +829,12 @@
         <div class="controls filters-collapsed" id="controls">
             <input type="file" id="jsonFile" accept=".json" style="display: none;">
             
-            <div class="switch" id="descSwitch" role="switch" aria-checked="false" title="Read descriptions only, no posters">
-                <span class="track"></span>
-                <span>Description-only</span>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 18px; margin: 2px 0 14px;">
+                <div class="switch" id="descSwitch" role="switch" aria-checked="false" title="Read descriptions only, no posters" style="margin: 0;">
+                    <span class="track"></span>
+                    <span>Description-only</span>
+                </div>
+                <button id="resetFilters" title="Back to: most recent, all genres, all themes, any year, no keywords" style="padding: 6px 12px; background: #2a2a2a; border: 1px solid #555; border-radius: 12px; color: #ddd; font-size: 12px; font-weight: 600; cursor: pointer;">↺ Reset filters</button>
             </div>
             
             <button id="collapseBtn" onclick="toggleCollapse()">🔽 Show Filters</button>
@@ -2159,6 +2162,18 @@
             try { localStorage.setItem('descOnly', descOnly ? '1' : '0'); } catch (e) {}
             descSwitch.classList.toggle('on', descOnly);
             descSwitch.setAttribute('aria-checked', descOnly);
+            applyFiltersAndDisplay();
+        });
+        
+        // Reset filters: sort, genre, theme, years and keywords back to default (medium and the switch stay as they are)
+        document.getElementById('resetFilters').addEventListener('click', () => {
+            const recent = document.querySelector('input[name="sortOrder"][value="recent"]');
+            if (!recent.checked) { recent.checked = true; recent.dispatchEvent(new Event('change')); }
+            document.getElementById('genreFilter').value = ''; selectedGenre = '';
+            document.getElementById('themeFilter').value = ''; selectedTheme = '';
+            minYear = EARLIEST; maxYear = new Date().getFullYear();
+            minYearDropdown.value = EARLIEST; maxYearDropdown.value = maxYear;
+            document.getElementById('searchFilter').value = '';
             applyFiltersAndDisplay();
         });
         
