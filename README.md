@@ -105,6 +105,9 @@ Thresholds and the genre mapping are at the top of the script.
 6. Original release dates from MusicBrainz (no key, 1 request/s, `MB_BUDGET_MIN`, default 20 min per run; cached per
    album in `cache/`): Deezer dates reissues by the remaster, so "Abbey Road (Remastered 2009)" would land in 2015.
    The card shows the cleaned title (`display_title`) and the original year; `deezer_release_date` keeps Deezer's.
+6b. Subgenres: MusicBrainz artist tags filtered to MusicBrainz's genre list, top 5 per artist, cached in
+   `cache/artists.json` (`mbtags`), `TAGS_BUDGET_MIN` per run (default 15). Shown as `subgenres` on each album; the
+   page's second dropdown lists them for the chosen genre.
 7. (Off by default.) Wikipedia album notes: `WIKI_BUDGET_MIN=25 python fetch_music.py` spends up to 25 min per run on
    the Wikipedia summary endpoint, which throttles anonymous callers hard. Albums need no synopsis, so the site
    shows the track list instead and the themes are built from artist, title, genres and track names.
@@ -140,7 +143,8 @@ Metacritic, falling back to the RAWG rating.
 All four media use the same local model and method, on the ROG: Ollama `bge-m3` on CPU (so GPU jobs are
 never disturbed), unloaded right after each run. The hourly `themes-refresh.timer` runs `refresh_themes.sh`,
 which pulls, runs `refresh_themes.py` (movies + TV, 60 themes in `theme_names.json`) and
-`refresh_media_themes.py` for books, music and games, and commits + pushes whatever changed.
+`refresh_media_themes.py` for books and games, and commits + pushes whatever changed. Music has no themes:
+its second dropdown lists MusicBrainz subgenres within the chosen Deezer genre (§4, step 6b).
 Only NEW titles are embedded; each joins the nearest existing centroid, so theme names stay stable.
 
 Text per book = title, author, genres, blurb, subjects; per album = artist, title, year, genres,

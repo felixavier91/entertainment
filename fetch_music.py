@@ -30,6 +30,7 @@ RECENT_YEARS = 1                 # albums this new are re-read every run
 WIKI_DELAY = 1.0                 # one Wikipedia summary per second; anything faster gets this address throttled
 TYPES = ('album', 'ep')
 MB_BUDGET = int(os.environ.get('MB_BUDGET_MIN', 20)) * 60      # seconds per run spent asking MusicBrainz for original release dates (1 req/s)
+TAGS_BUDGET = int(os.environ.get('TAGS_BUDGET_MIN', 15)) * 60  # seconds per run spent asking MusicBrainz for artist subgenres (1 req/s)
 KIDS_GENRE_ID = 95               # Deezer's "Kids" genre: never seeded, never kept
 KIDS_RE = re.compile(r"\b(kids?|children|nursery|lullab|toddler|baby shark|cocomelon|disney junior|sing-?along|bedtime)\b", re.I)
 
@@ -142,7 +143,7 @@ while heap and len(artists) < MAX_ARTISTS:
                 for g in artists[aid]['genres']: artists[a['id']]['genres'].add(g)   # inherit the seed's genre as a hint
                 heapq.heappush(heap, (-a['nb_fan'], a['id']))
     print(f'  related: {len(explored)} explored, {len(artists)} artists ({calls} calls)')
-json.dump({str(k): {'name': v['name'], 'fans': v['fans'], 'genres': sorted(v['genres'])} for k, v in artists.items()},
+json.dump({str(k): {**known.get(str(k), {}), 'name': v['name'], 'fans': v['fans'], 'genres': sorted(v['genres'])} for k, v in artists.items()},
           open('cache/artists.json', 'w', encoding='utf-8'), ensure_ascii=False)
 print(f'artists: {len(artists)} ({calls} calls)\n')
 
@@ -289,6 +290,63 @@ for n, aid in enumerate(need_mb):
     if n % 100 == 99: print(f'  musicbrainz {n + 1}/{len(need_mb)}'); save_cache()
 save_cache()
 
+# ============= 5c. SUBGENRES (MusicBrainz artist tags) =============
+# Deezer only has top-level genres (Rock, Pop…). MusicBrainz tags artists with real subgenres; keep the ones that are
+# in MusicBrainz's own genre list (drops "seen live", "female vocals"…), top 5 by votes, cached per artist.
+GENRE_LIST = 'cache/mb_genres.txt'
+def mb_genres():
+    if not os.path.exists(GENRE_LIST) or (date.today() - date.fromtimestamp(os.path.getmtime(GENRE_LIST))).days > 60:
+        try:
+            throttle(1.0)
+            r = session.get('https://musicbrainz.org/ws/2/genre/all', params={'fmt': 'txt'}, timeout=60,
+                            headers={'User-Agent': 'entertainment-site/0.1 (github.com/felixavier91/entertainment)'})
+            if r.status_code == 200 and len(r.text) > 1000: open(GENRE_LIST, 'w', encoding='utf-8').write(r.text)
+        except requests.RequestException:
+            pass
+    return set(l.strip().lower() for l in open(GENRE_LIST, encoding='utf-8')) if os.path.exists(GENRE_LIST) else set()
+def musicbrainz_tags(name, genres_ok):
+    """Top subgenres for an artist; [] when MusicBrainz has none, None when the lookup failed (retried next run)."""
+    for attempt in range(3):
+        try:
+            throttle(1.0)
+            r = session.get('https://musicbrainz.org/ws/2/artist/', params={'query': f'artist:"{name}"', 'fmt': 'json', 'limit': 3}, timeout=30,
+                            headers={'User-Agent': 'entertainment-site/0.1 (github.com/felixavier91/entertainment)'})
+            if r.status_code in (429, 503): time.sleep(5 * (attempt + 1)); continue
+            if r.status_code != 200: return []
+            d = r.json(); break
+        except (requests.RequestException, ValueError):
+            time.sleep(3)
+    else:
+        return None
+    for a in d.get('artists', []):
+        if int(a.get('score', 0)) < 90 or a.get('name', '').lower() != name.lower() and norm_title(a.get('name', '')) != norm_title(name): continue
+        tags = sorted(a.get('tags') or [], key=lambda t: -t['count'])
+        out = []
+        for t in tags:
+            n = t['name'].lower()
+            if n in genres_ok and n not in out: out.append(n)
+            if len(out) == 5: break
+        return out
+    return []
+
+artist_tags = json.load(open('cache/artists.json', encoding='utf-8'))
+genres_ok = mb_genres()
+need_tags = sorted({str(candidates[aid]['_artist']['id']) for aid in kept.values()
+                    if 'mbtags' not in artist_tags.get(str(candidates[aid]['_artist']['id']), {})})
+print(f'musicbrainz tags: {len(need_tags)} artists need subgenres (budget {TAGS_BUDGET // 60} min, {len(genres_ok)} known genres)')
+t_tags = time.monotonic(); tag_calls = 0
+for n, art_id in enumerate(need_tags):
+    if time.monotonic() - t_tags > TAGS_BUDGET:
+        print(f'  musicbrainz tags: budget used, {len(need_tags) - n} artists left for the next run'); break
+    entry = artist_tags.setdefault(art_id, {'name': artists[int(art_id)]['name'], 'fans': artists[int(art_id)]['fans'], 'genres': sorted(artists[int(art_id)]['genres'])})
+    res = musicbrainz_tags(entry['name'], genres_ok); tag_calls += 1
+    if res is None: continue
+    entry['mbtags'] = res
+    if n % 100 == 99:
+        print(f'  musicbrainz tags {n + 1}/{len(need_tags)}')
+        json.dump(artist_tags, open('cache/artists.json', 'w', encoding='utf-8'), ensure_ascii=False)
+json.dump(artist_tags, open('cache/artists.json', 'w', encoding='utf-8'), ensure_ascii=False)
+
 albums, wiki_calls = [], 0
 need = [aid for aid in kept.values() if old_desc.get(str(aid)) is None] if WIKI_BUDGET > 0 else []
 print(f'wikipedia: {len(need)} albums need a lookup' if WIKI_BUDGET > 0 else 'wikipedia notes: off')
@@ -326,6 +384,7 @@ for n, aid in enumerate(kept.values()):
         'deezer_release_date': c['release_date'],
         'fans': c['fans'],
         'genres': ', '.join(gen) if gen else 'N/A',
+        'subgenres': artist_tags.get(str(a['_artist']['id']), {}).get('mbtags', []),
         'label': c['label'],
         'tracks': c['tracks'],
         'nb_tracks': c['nb_tracks'],
@@ -350,5 +409,5 @@ meta = {
 json.dump({'albums': albums, 'metadata': meta}, open('music.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 print('=' * 50)
 print(f"✅ {meta['total_items']} releases ({meta['total_albums']} albums, {meta['total_eps']} EPs) from {len(artists)} artists")
-print(f"📦 music.json {os.path.getsize('music.json') / 1e6:.1f} MB · cache {os.path.getsize(CACHE) / 1e6:.1f} MB · {calls} Deezer calls · {mb_calls} MusicBrainz lookups · {wiki_calls} Wikipedia lookups")
+print(f"📦 music.json {os.path.getsize('music.json') / 1e6:.1f} MB · cache {os.path.getsize(CACHE) / 1e6:.1f} MB · {calls} Deezer calls · {mb_calls} MusicBrainz date lookups · {tag_calls} artist tag lookups · {wiki_calls} Wikipedia lookups")
 print('=' * 50)

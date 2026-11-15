@@ -1386,7 +1386,7 @@
                     <p style="margin: 4px 0;"><strong>Released:</strong> ${fmtDate(item.releaseDate)}</p>
                     <p style="margin: 4px 0;"><strong>Type:</strong> ${item.subtype === 'ep' ? '💽 EP' : '💿 Album'}${item.explicit ? ' · 🅴 Explicit' : ''}</p>
                     <p style="margin: 4px 0;"><strong>Fans:</strong> ❤️ ${item.x ? item.x.toLocaleString() : 'N/A'} on Deezer</p>
-                    <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}</p>
+                    <p style="margin: 4px 0;"><strong>Genres:</strong> ${esc(item.genres || 'N/A')}${item.subgenres && item.subgenres.length ? ' · ' + esc(item.subgenres.join(', ')) : ''}</p>
                     <p style="margin: 4px 0;"><strong>Label:</strong> ${esc(item.label || 'N/A')}</p>
                     <p style="margin: 4px 0;"><strong>Length:</strong> ${item.nb_tracks || '?'} tracks${item.duration ? ' · ' + fmtDuration(item.duration) : ''}</p>
                     <p style="margin: 8px 0;"><strong>Listen:</strong> <a href="${spotify}" target="_blank" rel="noopener" style="color: white; text-decoration: none;">${chip('Spotify', '#1DB954')}</a></p>
@@ -1419,7 +1419,7 @@
         }
         
         // ---- Themes: one file per embedding space (movies+tv share themes.json), loaded on demand ----
-        const THEME_FILE = { movies: 'themes.json', tv: 'themes.json', books: 'themes_books.json', music: 'themes_music.json', games: 'themes_games.json' };
+        const THEME_FILE = { movies: 'themes.json', tv: 'themes.json', books: 'themes_books.json', games: 'themes_games.json' };   // music has subgenres instead
         const themeSpaces = {};            // file → { themes, rowOf, themeOf, vec, dim } or null when missing
         const itemKey = it => it.type + ':' + it.id;
         async function loadThemes(file) {
@@ -1443,7 +1443,7 @@
             } catch (e) { console.log('themes unavailable for', file, e); }
             return themeSpaces[file];
         }
-        const curSpace = () => themeSpaces[THEME_FILE[currentContentType]] || null;
+        const curSpace = () => THEME_FILE[currentContentType] ? (themeSpaces[THEME_FILE[currentContentType]] || null) : null;
         const themeOfItem = (sp, it) => { if (!sp) return -1; const row = sp.rowOf[itemKey(it)]; return row === undefined ? -1 : sp.themeOf[row]; };
         function sim(sp, a, b) {
             let s = 0; const x = a * sp.dim, y = b * sp.dim;
@@ -1514,9 +1514,29 @@
         }
         
         let selectedTheme = '';           // '' | theme index (string) | 'forme'
+        // Music: the second dropdown lists subgenres (MusicBrainz artist tags) within the chosen genre
+        let selectedSubgenre = '';
+        function populateSubgenreDropdown() {
+            const sel = document.getElementById('themeFilter');
+            const counts = {};
+            for (const a of rawJsonData.music || []) {
+                if (selectedGenre && !(a.genres || '').split(',').map(g => g.trim()).includes(selectedGenre)) continue;
+                for (const sg of a.subgenres || []) counts[sg] = (counts[sg] || 0) + 1;
+            }
+            const prev = sel.value;
+            sel.innerHTML = '<option value="">🎼 All Subgenres</option>';
+            Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([sg, n]) => {
+                sel.insertAdjacentHTML('beforeend', `<option value="${esc(sg)}">${esc(sg)} (${n})</option>`);
+            });
+            sel.style.display = Object.keys(counts).length ? '' : 'none';
+            sel.value = [...sel.options].some(o => o.value === prev) ? prev : '';
+            if (sel.value !== selectedSubgenre) { selectedSubgenre = sel.value; applyFiltersAndDisplay(); }
+        }
+        
         async function populateThemeDropdown() {
             const sel = document.getElementById('themeFilter');
             if (!rawJsonData) return;
+            if (currentContentType === 'music') { selectedTheme = ''; return populateSubgenreDropdown(); }
             const had = THEME_FILE[currentContentType] in themeSpaces;
             const sp = await loadThemes(THEME_FILE[currentContentType]);
             if (!had && sp) applyFiltersAndDisplay();          // first load of this space: show theme names on the items
@@ -1540,7 +1560,7 @@
             if (sel.value !== selectedTheme) { selectedTheme = sel.value; applyFiltersAndDisplay(); }
         }
         document.getElementById('themeFilter').addEventListener('change', function() {
-            selectedTheme = this.value;
+            if (currentContentType === 'music') selectedSubgenre = this.value; else selectedTheme = this.value;
             applyFiltersAndDisplay();
         });
         
@@ -1564,7 +1584,8 @@
                         : (it.y ? '★ ' + it.y.toFixed(1) : '');
             const why = whyFor[itemKey(it)];
             const sp = curSpace(); const t = themeOfItem(sp, it);
-            return `<div class="desc-item"><h2>${esc(it.title)}<span>${it.year || ''} · ${KIND[it.type]}${by ? ' · ' + esc(by) : ''}${score ? ' · ' + score : ''}${t >= 0 ? ' · ' + esc(sp.themes[t]) : ''}</span></h2>` +
+            const tail = it.type === 'music' ? (it.subgenres && it.subgenres.length ? ' · ' + esc(it.subgenres.slice(0, 3).join(', ')) : '') : (t >= 0 ? ' · ' + esc(sp.themes[t]) : '');
+            return `<div class="desc-item"><h2>${esc(it.title)}<span>${it.year || ''} · ${KIND[it.type]}${by ? ' · ' + esc(by) : ''}${score ? ' · ' + score : ''}${tail}</span></h2>` +
                 (why ? `<div class="why">Because you liked ${esc(why)}</div>` : '') +
                 (it.overview ? `<p>${highlight(it.overview, term)}</p>` : '') +
                 (it.tracks && it.tracks.length ? `<p class="tracks">Tracks: ${highlight(it.tracks.join(' · '), term)}</p>` : '') +
@@ -2175,7 +2196,7 @@
             const recent = document.querySelector('input[name="sortOrder"][value="recent"]');
             if (!recent.checked) { recent.checked = true; recent.dispatchEvent(new Event('change')); }
             document.getElementById('genreFilter').value = ''; selectedGenre = '';
-            document.getElementById('themeFilter').value = ''; selectedTheme = '';
+            document.getElementById('themeFilter').value = ''; selectedTheme = ''; selectedSubgenre = '';
             minYear = EARLIEST; maxYear = new Date().getFullYear();
             minYearDropdown.value = EARLIEST; maxYearDropdown.value = maxYear;
             document.getElementById('searchFilter').value = '';
@@ -2628,6 +2649,7 @@
                 y: null,                      // Deezer has no ratings
                 year: a.year,
                 genres: a.genres,
+                subgenres: a.subgenres || [],
                 overview: a.overview,
                 releaseDate: a.release_date,
                 type: 'music',
@@ -2740,6 +2762,11 @@
                     music: displayData.music.filter(hasGenre),
                     games: displayData.games.filter(hasGenre)
                 };
+            }
+            
+            // Music: filter by subgenre (depends on the genre pick)
+            if (currentContentType === 'music' && selectedSubgenre) {
+                displayData.music = displayData.music.filter(a => (a.subgenres || []).includes(selectedSubgenre));
             }
             
             // Filter by theme (a number = that theme; 'forme' is ranked later in displayCards)
@@ -2913,6 +2940,7 @@
         document.getElementById('genreFilter').addEventListener('change', function() {
             selectedGenre = this.value;
             applyFiltersAndDisplay();
+            if (currentContentType === 'music') populateSubgenreDropdown();
         });
         
         // Initialize selected radio button styling
