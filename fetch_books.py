@@ -18,8 +18,15 @@ START_YEAR = 1990                # year-by-year queries from here; older books c
 CURRENT_YEAR = datetime.now().year
 CLASSIC_MIN_READERS = 200        # flat bar for everything before START_YEAR
 CLASSIC_PERIODS = [(d, d + 9) for d in range(1980, 1899, -10)] + [(1800, 1899), (1700, 1799), (1600, 1699), (1500, 1599), (1, 1499), (-3000, 0)]
-MIN_RATING = 3.0                 # books rated under this are dropped
-MIN_RATINGS = 10                 # and a book needs at least this many ratings (so unrated ones are dropped too)
+def min_ratings_for_year(year):
+    """Ratings a book needs, sliding with age like the movies' vote threshold (unrated books never pass).
+    2026: 3 · 2025: 4 · 2020: 6 · 2010: 11 · 2000: 16 · 1990: 21 · 1982 and older: 25"""
+    return min(25, round(3 + 0.5 * max(0, CURRENT_YEAR - year)))
+
+def min_rating_for_year(year):
+    """Average a book needs (0–5), creeping up with age like the movies' rating threshold.
+    2026: 3.0 · 2010: 3.3 · 1990: 3.6 (cap)"""
+    return min(3.6, 3.0 + 0.02 * max(0, CURRENT_YEAR - year))
 UA = 'new-books (github.com/felixavier91/new-books)'
 OL = 'https://openlibrary.org'
 PAGE = 100
@@ -193,8 +200,8 @@ books, skipped, fetched, wiki = [], 0, 0, 0
 for i, (key, doc) in enumerate(docs.items()):
     subjects = doc.get('subject') or []
     if SKIP_RE.search(' | '.join(subjects)) or not doc.get('title'): skipped += 1; continue
-    if (doc.get('ratings_count') or 0) < MIN_RATINGS or (doc.get('ratings_average') or 0) < MIN_RATING: skipped += 1; continue
     year = doc.get('first_publish_year') or 0
+    if (doc.get('ratings_count') or 0) < min_ratings_for_year(year) or (doc.get('ratings_average') or 0) < min_rating_for_year(year): skipped += 1; continue
     prev = old.get(key)
     desc = (prev or {}).get('overview')
     if desc is None or (desc == '' and (prev or {}).get('desc_checked') != CURRENT_YEAR):
