@@ -1372,9 +1372,12 @@
                     <p style="margin: 8px 0 0; font-size: 12px; color: #ddd;"><strong>Tracks:</strong><br>${tracks}</p>`;
             }
             
+            // RAWG art is key art / screenshots with no lettering, so games get their name printed on the card
+            const caption = isGame ? `<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 70px 14px 14px; background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.55) 55%, transparent); color: #fff; pointer-events: none;"><div style="font-size: 19px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.9); padding-right: ${badge ? '120px' : '0'};">${esc(item.title)}</div><div style="font-size: 12px; color: #ccc; margin-top: 3px;">${item.year || ''}${item.developer ? ' · ' + esc(item.developer) : ''}</div></div>` : '';
             return `
                 <div class="movie-card" style="position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer;">
                     ${cover}
+                    ${caption}
                     ${badgeHTML}
                     <div class="card-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s; overflow-y: hidden; overscroll-behavior: contain; display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;">
                         <h3 style="margin: 0 0 12px 0; color: white; font-size: 18px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">${esc(item.title)}</h3>
