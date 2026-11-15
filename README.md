@@ -1,7 +1,7 @@
-# New Movies, Shows, Books, Music & Games — Repo Guide
+# Entertainment (movies, shows, books, music, games) — Repo Guide
 
 One static site, five media, zero ads. Everything is plain HTML + JSON on GitHub Pages
-(https://felixavier91.github.io/new-movies-and-shows/). Scheduled jobs refresh the JSON; the
+(https://felixavier91.github.io/entertainment/). Scheduled jobs refresh the JSON; the
 pages just `fetch()` it and render client-side.
 
 > **Keep this file current.** Every change to a script, workflow, filter, schedule or data

@@ -41,7 +41,7 @@ def families(platforms):
     return out or ['other']
 
 session = requests.Session()
-session.headers['User-Agent'] = 'new-movies-and-shows (github.com/felixavier91/new-movies-and-shows)'
+session.headers['User-Agent'] = 'new-movies-and-shows (github.com/felixavier91/entertainment)'
 calls = 0
 def get(path, **params):
     global calls
