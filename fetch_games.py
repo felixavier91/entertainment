@@ -67,7 +67,11 @@ def clean(text):
     text = re.sub(r'\s{2,}', ' ', text)
     # RAWG often appends the Spanish translation after "Español"; keep the English half
     text = re.split(r'\bEspañol\b', text)[0].strip()
-    return text[:1500]
+    # Steam store boilerplate ("JOIN OUR DISCORD About the Game …") and glued-together SHOUTY headers
+    text = re.sub(r'^.{0,200}?\bAbout the Game\b\s*', '', text, flags=re.S)
+    text = re.sub(r'^(JOIN OUR DISCORD|Wishlist now!?|Follow us on \w+)[^.!?]*[.!?]?\s*', '', text, flags=re.I)
+    text = re.sub(r'(?<=[a-z.!?])([A-Z]{3,}(?: [A-Z&]{2,}){0,5})(?=[A-Z][a-z])', r' \1: ', text)
+    return text.strip()[:1500]
 
 # ============= PREVIOUS RUN =============
 old = {}
