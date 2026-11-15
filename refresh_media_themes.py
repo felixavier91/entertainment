@@ -11,9 +11,9 @@ Files per medium M:
     centroids_M.npy, mean_M.npy  the cluster geometry from cluster_media.py       (tracked)
     labels_M.json       title → theme                                              (tracked)
     themes_M.json       what themes.html reads                                     (tracked)
-    embeddings_M.npy + embed_ids_M.json  the embedding cache (local only, like the movies' embeddings.npy)
+    embeddings_M.npy + embed_ids_M.json + embed_hash_M.json  the embedding cache (local only, like the movies' embeddings.npy)
 Prints 'changed' when themes_M.json was rewritten, 'no change' otherwise."""
-import json, base64, os, sys, urllib.request, numpy as np
+import json, base64, os, sys, hashlib, urllib.request, numpy as np
 
 D = 256
 OLLAMA = 'http://localhost:11434'
@@ -73,10 +73,25 @@ def main(medium):
     ids, X = load_cache(medium, cent.shape[1])
     have = set(ids)
     new = [k for k in cur if k not in have]          # also re-reads everything if the cache was lost
+    # a title whose text changed since it was read (e.g. album notes that arrived later) is read again
+    hash_f = f'embed_hash_{medium}.json'
+    hashes = json.load(open(hash_f)) if os.path.exists(hash_f) else {}
+    h = lambda t: hashlib.md5(t.encode()).hexdigest()[:12]
+    changed = [k for k in cur if k in have and hashes.get(k) and hashes[k] != h(cur[k])]
+    if changed:
+        print(f'embedding {len(changed)} titles whose text changed…')
+        E = embed([cur[k] for k in changed])
+        for k, e in zip(changed, E):
+            X[ids.index(k)] = e; labels.pop(k, None)
     if new:
         print(f'embedding {len(new)} new titles…')
         X = np.vstack([X, embed([cur[k] for k in new])]); ids += new
+    if new or changed:
         save_cache(medium, ids, X)
+        for k in new + changed: hashes[k] = h(cur[k])
+        json.dump(hashes, open(hash_f, 'w'), separators=(',', ':'))
+    elif not hashes:                                 # first run with an old cache: record the hashes without re-reading
+        json.dump({k: h(cur[k]) for k in cur if k in have}, open(hash_f, 'w'), separators=(',', ':'))
     Xn = X / np.linalg.norm(X, axis=1, keepdims=True)
     Xc = Xn - mean
     unl = [i for i, k in enumerate(ids) if k not in labels]
@@ -88,7 +103,7 @@ def main(medium):
     out_ids = [ids[i] for i in keep]
     out_f = f'themes_{medium}.json'
     old = json.load(open(out_f)) if os.path.exists(out_f) else {}
-    if not new and not unl and set(old.get('ids', [])) == set(out_ids) and old.get('themes') == names:
+    if not new and not changed and not unl and set(old.get('ids', [])) == set(out_ids) and old.get('themes') == names:
         print('no change'); return
     P = Xc[keep]
     d = min(D, P.shape[0], P.shape[1])
@@ -98,7 +113,7 @@ def main(medium):
     q = np.clip(np.round(P * 127 / np.abs(P).max()), -127, 127).astype(np.int8)
     json.dump({'themes': names, 'ids': out_ids, 'theme': [labels[k] for k in out_ids], 'dim': d,
                'vec': base64.b64encode(q.tobytes()).decode()}, open(out_f, 'w'), separators=(',', ':'))
-    print(f'changed: {len(new)} new, {len(out_ids)} titles')
+    print(f'changed: {len(new)} new, {len(out_ids)} titles' + (f', {len(changed)} re-read' if changed else ''))
     for k in new[:40]: print('  +', k, '->', names[labels[k]])
 
 if __name__ == '__main__':
