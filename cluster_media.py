@@ -1,26 +1,25 @@
 """One-off: group a medium's titles into K themes and print what each one is about, so the themes can be named by hand.
     python cluster_media.py books 40
-Writes centroids_M.npy, mean_M.npy, labels_M.json, the embedding cache, a placeholder theme_names_M.json (if none exists)
-and cluster_report_M.json (keywords + examples per cluster, for naming). Rerunning renames nothing: edit theme_names_M.json."""
+Embeds with the local model (Ollama bge-m3, CPU) through refresh_media_themes.embed. Writes centroids_M.npy, mean_M.npy,
+labels_M.json, the embedding cache, a placeholder theme_names_M.json (if none exists) and cluster_report_M.json
+(keywords + examples per cluster, for naming). Rerunning renames nothing: edit theme_names_M.json."""
 import json, os, sys, numpy as np
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer
-from refresh_media_themes import texts_for, embed
+from refresh_media_themes import texts_for, embed, load_cache, save_cache
 
 medium = sys.argv[1]
 K = int(sys.argv[2]) if len(sys.argv) > 2 else 40
 data = json.load(open(f'{medium}.json', encoding='utf-8'))
 cur = texts_for(medium, data)
-emb_f, ids_f = f'embeddings_{medium}.npy', f'embed_ids_{medium}.json'
-if os.path.exists(emb_f):
-    ids, X = json.load(open(ids_f)), np.load(emb_f).astype(np.float32)
-else:
-    ids, X = [], np.zeros((0, 384), np.float32)
+ids, X = load_cache(medium)
 new = [k for k in cur if k not in set(ids)]
 if new:
     print(f'embedding {len(new)} titles…')
-    X = np.vstack([X, embed([cur[k] for k in new])]); ids += new
-    np.save(emb_f, X.astype(np.float16)); json.dump(ids, open(ids_f, 'w'))
+    E = embed([cur[k] for k in new])
+    X = np.vstack([X, E]) if len(ids) else E
+    ids += new
+    save_cache(medium, ids, X)
 keep = [i for i, k in enumerate(ids) if k in cur]
 ids = [ids[i] for i in keep]; X = X[keep]
 Xn = X / np.linalg.norm(X, axis=1, keepdims=True)

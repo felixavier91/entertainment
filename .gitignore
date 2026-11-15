@@ -1,5 +1,8 @@
+cluster_report_*.json
 embeddings.npy
+embeddings_*.npy
 embed_ids.json
+embed_ids_*.json
 fetch.log
 *.log
 __pycache__/

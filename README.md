@@ -132,21 +132,24 @@ Metacritic, falling back to the RAWG rating.
 
 ## 5. Themes
 
-Movies/TV: unchanged — `refresh_themes.py` on the ROG, Ollama `bge-m3`, 60 themes
-(`theme_names.json`), output `themes.json`.
+All four media use the same local model and method, on the ROG: Ollama `bge-m3` on CPU (so GPU jobs are
+never disturbed), unloaded right after each run. The hourly `themes-refresh.timer` runs `refresh_themes.sh`,
+which pulls, runs `refresh_themes.py` (movies + TV, 60 themes in `theme_names.json`) and
+`refresh_media_themes.py` for books, music and games, and commits + pushes whatever changed.
+Only NEW titles are embedded; each joins the nearest existing centroid, so theme names stay stable.
 
-Books, music and games: `refresh_media_themes.py M` in Actions, fastembed `BAAI/bge-small-en-v1.5`
-(CPU, no server). Text per book = title, author, genres, blurb, subjects; per album = artist,
-title, year, genres, Wikipedia notes, track list; per game = title, year, genres, tags, description. New titles are embedded and join the nearest
-existing centroid, so theme names stay stable. Files per medium `M`: `theme_names_M.json`,
-`centroids_M.npy`, `mean_M.npy`, `labels_M.json`, `embeddings_M.npy` + `embed_ids_M.json`
-(cache, float16, committed), `themes_M.json` (what the page reads).
+Text per book = title, author, genres, blurb, subjects; per album = artist, title, year, genres,
+Wikipedia notes, track list; per game = title, year, genres, tags, description.
 
-To re-cluster a medium from scratch (new theme set):
+Files per medium `M`: `theme_names_M.json` (hand-written names), `centroids_M.npy`, `mean_M.npy`,
+`labels_M.json`, `themes_M.json` (what the page reads) — all tracked; `embeddings_M.npy` +
+`embed_ids_M.json` are the local embedding cache (gitignored, like the movies' `embeddings.npy`; if lost,
+the next run just re-reads everything).
+
+To re-cluster a medium from scratch (new theme set), on the ROG:
 ```bash
-python -m venv .venv && .venv/bin/pip install numpy scikit-learn fastembed requests
 rm -f theme_names_books.json labels_books.json
-.venv/bin/python cluster_media.py books 40     # prints keywords + examples per cluster
+.venv/bin/python cluster_media.py books 40     # prints keywords + examples per cluster, writes cluster_report_books.json
 # write names into theme_names_books.json (order = cluster number), then:
 .venv/bin/python refresh_media_themes.py books
 ```
@@ -158,4 +161,4 @@ rm -f theme_names_books.json labels_books.json
 
 ## 6. Start of a new year
 
-Nothing to change: thresholds in all three fetchers are computed from the current year.
+Nothing to change: thresholds in all four fetchers are computed from the current year.

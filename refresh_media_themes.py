@@ -1,22 +1,35 @@
-"""Themes for books, music and games (the movie themes are refresh_themes.py, which runs on the ROG with Ollama).
-This one runs in GitHub Actions with fastembed (BAAI/bge-small-en-v1.5, CPU, ~130 MB model), so it needs no local machine.
+"""Themes for books, music and games, the same way refresh_themes.py does movies: the local model (Ollama bge-m3, on CPU
+so it never disturbs GPU jobs) reads each new title once, and the title joins the existing theme whose plots it is
+closest to, so theme names stay stable. Runs hourly on the ROG from refresh_themes.sh.
 
     python refresh_media_themes.py books      # books.json  → themes_books.json
     python refresh_media_themes.py music      # music.json  → themes_music.json
     python refresh_media_themes.py games      # games.json  → themes_games.json
 
-Only NEW titles are embedded; each joins the existing theme whose centroid it is closest to, so theme names stay stable.
-Files per medium M (all tracked in git):
-    theme_names_M.json  the names, written by hand after cluster_media.py
-    centroids_M.npy, mean_M.npy  the cluster geometry from cluster_media.py
-    labels_M.json       title → theme
-    embeddings_M.npy (float16) + embed_ids_M.json  the embedding cache, so a run only embeds what is new
-    themes_M.json       what themes.html reads
+Files per medium M:
+    theme_names_M.json  the names, written by hand after cluster_media.py          (tracked)
+    centroids_M.npy, mean_M.npy  the cluster geometry from cluster_media.py       (tracked)
+    labels_M.json       title → theme                                              (tracked)
+    themes_M.json       what themes.html reads                                     (tracked)
+    embeddings_M.npy + embed_ids_M.json  the embedding cache (local only, like the movies' embeddings.npy)
 Prints 'changed' when themes_M.json was rewritten, 'no change' otherwise."""
-import json, base64, os, sys, numpy as np
+import json, base64, os, sys, urllib.request, numpy as np
 
-MODEL = 'BAAI/bge-small-en-v1.5'
 D = 256
+OLLAMA = 'http://localhost:11434'
+MODEL = 'bge-m3'
+
+def post(path, body):
+    req = urllib.request.Request(OLLAMA + path, json.dumps(body).encode(), {'Content-Type': 'application/json'})
+    return json.load(urllib.request.urlopen(req, timeout=900))
+
+def embed(texts):
+    out = []
+    for i in range(0, len(texts), 16):
+        out += post('/api/embed', {'model': MODEL, 'input': texts[i:i+16], 'keep_alive': '1m', 'options': {'num_gpu': 0}})['embeddings']
+        if i and i % 800 == 0: print(f'  embedded {i}/{len(texts)}', flush=True)
+    post('/api/generate', {'model': MODEL, 'keep_alive': 0})      # unload right away
+    return np.array(out, dtype=np.float32)
 
 def texts_for(medium, data):
     """key → text the model reads. Items without enough text are left out (they still show on the posters page)."""
@@ -42,10 +55,14 @@ def texts_for(medium, data):
         raise SystemExit('medium must be books, music or games')
     return out
 
-def embed(texts):
-    from fastembed import TextEmbedding
-    model = TextEmbedding(MODEL, threads=os.cpu_count())
-    return np.array(list(model.embed(texts, batch_size=32)), dtype=np.float32)
+def load_cache(medium, dim=None):
+    emb_f, ids_f = f'embeddings_{medium}.npy', f'embed_ids_{medium}.json'
+    if os.path.exists(emb_f):
+        return json.load(open(ids_f)), np.load(emb_f).astype(np.float32)
+    return [], np.zeros((0, dim or 1024), np.float32)
+
+def save_cache(medium, ids, X):
+    np.save(f'embeddings_{medium}.npy', X); json.dump(ids, open(f'embed_ids_{medium}.json', 'w'))
 
 def main(medium):
     data = json.load(open(f'{medium}.json', encoding='utf-8'))
@@ -53,17 +70,13 @@ def main(medium):
     names = json.load(open(f'theme_names_{medium}.json'))
     labels = json.load(open(f'labels_{medium}.json'))
     cent, mean = np.load(f'centroids_{medium}.npy'), np.load(f'mean_{medium}.npy')
-    emb_f, ids_f = f'embeddings_{medium}.npy', f'embed_ids_{medium}.json'
-    if os.path.exists(emb_f):
-        ids, X = json.load(open(ids_f)), np.load(emb_f).astype(np.float32)
-    else:
-        ids, X = [], np.zeros((0, cent.shape[1]), np.float32)
+    ids, X = load_cache(medium, cent.shape[1])
     have = set(ids)
     new = [k for k in cur if k not in have]          # also re-reads everything if the cache was lost
     if new:
         print(f'embedding {len(new)} new titles…')
         X = np.vstack([X, embed([cur[k] for k in new])]); ids += new
-        np.save(emb_f, X.astype(np.float16)); json.dump(ids, open(ids_f, 'w'))
+        save_cache(medium, ids, X)
     Xn = X / np.linalg.norm(X, axis=1, keepdims=True)
     Xc = Xn - mean
     unl = [i for i, k in enumerate(ids) if k not in labels]

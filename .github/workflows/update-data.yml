@@ -36,14 +36,7 @@ jobs:
           python-version: '3.11'
       
       - name: Install dependencies
-        run: pip install requests numpy fastembed
-      
-      # The embedding model is ~130 MB; keep it between runs
-      - name: Cache embedding model
-        uses: actions/cache@v4
-        with:
-          path: /tmp/fastembed_cache
-          key: fastembed-bge-small-en-v1.5
+        run: pip install requests
       
       # Only fetch new data if triggered by schedule or manual dispatch
       # Skip data fetch if triggered by a regular push (like index.html change)
@@ -72,26 +65,14 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(date -u +%H)" != "00" ]; then echo "not the daily games run"; exit 0; fi
           python fetch_games.py
       
-      # Movie themes are refreshed on the ROG (refresh_themes.sh, Ollama bge-m3). Books and music are done here.
-      - name: Refresh book, music & game themes
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        env:
-          FASTEMBED_CACHE_PATH: /tmp/fastembed_cache
-        run: |
-          for m in books music games; do
-            [ -f themes_$m.json ] || [ -f centroids_$m.npy ] || { echo "no themes built for $m yet"; continue; }
-            python refresh_media_themes.py $m
-          done
-      
+      # Themes (all media) are refreshed on the ROG by refresh_themes.sh with the local model; nothing to do here.
       - name: Commit data changes
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add data.json cache/
-          for f in books.json music.json games.json themes_*.json labels_*.json embeddings_*.npy embed_ids_*.json; do
-            [ -f "$f" ] && git add "$f"
-          done
+          for f in books.json music.json games.json; do [ -f "$f" ] && git add "$f"; done
           if git diff --staged --quiet; then
             echo "No data changes"
           else
