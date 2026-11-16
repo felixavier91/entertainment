@@ -85,7 +85,8 @@ memoir…); else the first sentence. Descriptions are reused from the previous `
 so a run only fetches work records for new books.
 
 **Excluded:** anything for kids (subjects with juvenile, picture book, children, early/chapter/beginning reader, middle grade,
-nursery; young adult stays), plus textbooks, study guides, workbooks, test prep, colouring/board books, dictionaries, calendars.
+nursery; plus a title block list of the usual kids series such as Wimpy Kid, Dog Man, Percy Jackson, and books under 60 pages;
+young adult stays), plus textbooks, study guides, workbooks, test prep, colouring/board books, dictionaries, calendars.
 
 Thresholds and the genre mapping are at the top of the script.
 

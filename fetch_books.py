@@ -76,6 +76,8 @@ FICTION_RE = re.compile(r'fiction|novel|stories|romance|fantasy|thriller|mystery
 NONFICTION_RE = re.compile(r'nonfiction|non-fiction|biograph|memoir|history|science|business|self-help|psycholog|philosoph|politic|economics|essays|religio|health|cooking|true crime|travel|technology|sociology|journalism|education', re.I)
 # Not interested: schoolbooks, and anything written for kids (picture books, juvenile series, middle grade). YA stays.
 NON_LATIN_RE = re.compile(r'[^\x00-\x7F\u00C0-\u024F\u1E00-\u1EFF\u2010-\u2027\u2032-\u203A\u20AC\u2122\u00A0-\u00BF]')
+KIDS_TITLE_RE = re.compile(r"diary of a wimpy kid|dog man|cat kid|captain underpants|magic tree house|geronimo stilton|baby-?sitters club|big nate|junie b\.? jones|goosebumps|the bad guys|^who (was|is|were) |^what (was|is) |^where is |rainbow magic|pete the cat|elephant & piggie|last kids on earth|i survived the|wings of fire|warriors: |amulet|bluey|peppa pig|paw patrol|minecraft: |pokémon|five nights at freddy|the babysitters club|dork diaries|the wild robot|percy jackson|keeper of the lost cities", re.I)
+MIN_PAGES = 60                   # picture books and novelty booklets are shorter than this
 JUNK_TITLE_RE = re.compile(r'[{}$#~⨊]|contact center|coupon', re.I)
 SKIP_RE = re.compile(r'textbook|study guide|coloring book|board book|workbook|examination|test prep|dictionar|calendar|coupon|ncert|neet|jee main|'
                      r'juvenile|picture book|children|early reader|chapter book|middle grade|beginning reader|read-aloud|nursery', re.I)
@@ -203,6 +205,7 @@ books, skipped, fetched, wiki = [], 0, 0, 0
 for i, (key, doc) in enumerate(docs.items()):
     subjects = doc.get('subject') or []
     if SKIP_RE.search(' | '.join(subjects)) or not doc.get('title'): skipped += 1; continue
+    if KIDS_TITLE_RE.search(doc.get('title') or '') or (doc.get('number_of_pages_median') and doc['number_of_pages_median'] < MIN_PAGES): skipped += 1; continue
     year = doc.get('first_publish_year') or 0
     if (doc.get('ratings_count') or 0) < min_ratings_for_year(year) or (doc.get('ratings_average') or 0) < min_rating_for_year(year): skipped += 1; continue
     prev = old.get(key)
