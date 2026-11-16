@@ -1336,8 +1336,7 @@
             
             let badge = '';
             if (isGame) {
-                if (item.metacritic) badge = { text: `Metacritic ${item.metacritic}`, color: metaColor(item.metacritic) };
-                else if (item.rating) badge = { text: `★ ${item.rating.toFixed(1)}`, color: '#444' };
+                if (item.rating) badge = { text: `★ ${item.rating.toFixed(1)}`, color: '#444' };   // player rating only; Metacritic stays in the overlay
             } else if (isBook) {
                 if (item.ebook === 'public') badge = { text: '📖 Read free', color: '#1f7a3a' };
                 else if (item.ebook === 'borrowable') badge = { text: '📚 Borrow', color: '#1d4ed8' };
