@@ -204,13 +204,19 @@ for lo, hi in CLASSIC_PERIODS:
 print(f'\n✅ {len(docs)} works found\n')
 
 # ============= BUILD RECORDS =============
+# Authors with any smut-tagged book lose all their 2005+ books (the untagged ones are the same fast food)
+smut_authors = set()
+for doc in docs.values():
+    if (doc.get('first_publish_year') or 0) >= SMUT_FROM_YEAR and SMUT_RE.search(' | '.join(doc.get('subject') or [])):
+        smut_authors.update((doc.get('author_key') or [])[:1])
+print(f'smut authors: {len(smut_authors)}')
 books, skipped, fetched, wiki = [], 0, 0, 0
 for i, (key, doc) in enumerate(docs.items()):
     subjects = doc.get('subject') or []
     if SKIP_RE.search(' | '.join(subjects)) or not doc.get('title'): skipped += 1; continue
     if KIDS_TITLE_RE.search(doc.get('title') or '') or (doc.get('number_of_pages_median') and doc['number_of_pages_median'] < MIN_PAGES): skipped += 1; continue
     year = doc.get('first_publish_year') or 0
-    if year >= SMUT_FROM_YEAR and SMUT_RE.search(' | '.join(subjects)): skipped += 1; continue
+    if year >= SMUT_FROM_YEAR and (SMUT_RE.search(' | '.join(subjects)) or (doc.get('author_key') or [None])[0] in smut_authors): skipped += 1; continue
     if (doc.get('ratings_count') or 0) < min_ratings_for_year(year) or (doc.get('ratings_average') or 0) < min_rating_for_year(year): skipped += 1; continue
     prev = old.get(key)
     desc = (prev or {}).get('overview')

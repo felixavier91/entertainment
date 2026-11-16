@@ -87,7 +87,7 @@ so a run only fetches work records for new books.
 **Excluded:** anything for kids (subjects with juvenile, picture book, children, early/chapter/beginning reader, middle grade,
 nursery; plus a title block list of the usual kids series such as Wimpy Kid, Dog Man, Percy Jackson, and books under 60 pages;
 young adult stays), and cheap smut: books from 2005 on whose reader tags say erotica / dark, mafia, bully or billionaire
-romance / BDSM / reverse harem / stepbrother / alpha male (`SMUT_RE`; rom-coms are not tagged like that), plus textbooks, study guides, workbooks, test prep, colouring/board books, dictionaries, calendars.
+romance / BDSM / reverse harem / stepbrother / alpha male (`SMUT_RE`; rom-coms are not tagged like that), and every 2005+ book by an author who has any such tagged book, plus textbooks, study guides, workbooks, test prep, colouring/board books, dictionaries, calendars.
 
 Thresholds and the genre mapping are at the top of the script.
 
