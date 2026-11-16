@@ -90,9 +90,13 @@
         @media (max-width: 768px) {
             body { overflow-x: hidden; padding: 6px; }
             .container { padding: 0; gap: 8px; }
-            .controls { padding: 8px; gap: 6px; border-radius: 8px; }
-            .bar-select, .bar-input { font-size: 11px; padding: 6px 8px; max-width: 46vw; }
-            .bar-input { width: 44vw; }
+            /* One row that scrolls sideways instead of wrapping */
+            .controls { padding: 8px; gap: 6px; border-radius: 8px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+            .controls::-webkit-scrollbar { display: none; }
+            .controls > * { flex: 0 0 auto; }
+            .bar-select, .bar-input { font-size: 11px; padding: 6px 8px; max-width: 130px; }
+            .bar-input { width: 110px; }
+            .switch span:last-child { white-space: nowrap; }
             .switch { font-size: 12px; gap: 6px; }
             .switch .track { width: 36px; height: 20px; }
             .switch .track::after { width: 14px; height: 14px; }
