@@ -169,7 +169,7 @@ FIELDS = ','.join(['key', 'title', 'subtitle', 'author_name', 'author_key', 'fir
                    'ratings_average', 'ratings_count', 'readinglog_count', 'want_to_read_count',
                    'currently_reading_count', 'already_read_count', 'subject', 'number_of_pages_median',
                    'language', 'ebook_access', 'ia', 'first_sentence', 'edition_count',
-                   'editions', 'editions.title', 'editions.language'])   # editions = the best English edition (lang=en + language:eng)
+                   'editions', 'editions.title', 'editions.subtitle', 'editions.language'])   # editions = the best English edition (lang=en + language:eng)
 docs = {}
 for year in range(START_YEAR, CURRENT_YEAR + 1):
     thr = min_readers_for_year(year)
@@ -234,6 +234,9 @@ for i, (key, doc) in enumerate(docs.items()):
             if 'eng' in (ed.get('language') or []) and t and not NON_LATIN_RE.search(t) and not JUNK_TITLE_RE.search(t):
                 title = t; break
     subtitle = (doc.get('subtitle') or '').strip().rstrip('.')
+    if not subtitle:                                     # the work record often lacks it; the English edition usually has it
+        for ed in ((doc.get('editions') or {}).get('docs') or []):
+            if ed.get('subtitle') and 'eng' in (ed.get('language') or ['eng']): subtitle = ed['subtitle'].strip().rstrip('.'); break
     if subtitle and NON_LATIN_RE.search(subtitle): subtitle = ''
     if subtitle and subtitle.lower() in title.lower(): subtitle = ''
     books.append({
