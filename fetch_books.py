@@ -78,6 +78,9 @@ NONFICTION_RE = re.compile(r'nonfiction|non-fiction|biograph|memoir|history|scie
 NON_LATIN_RE = re.compile(r'[^\x00-\x7F\u00C0-\u024F\u1E00-\u1EFF\u2010-\u2027\u2032-\u203A\u20AC\u2122\u00A0-\u00BF]')
 KIDS_TITLE_RE = re.compile(r"diary of a wimpy kid|dog man|cat kid|captain underpants|magic tree house|geronimo stilton|baby-?sitters club|big nate|junie b\.? jones|goosebumps|the bad guys|^who (was|is|were) |^what (was|is) |^where is |rainbow magic|pete the cat|elephant & piggie|last kids on earth|i survived the|wings of fire|warriors: |amulet|bluey|peppa pig|paw patrol|minecraft: |pokémon|five nights at freddy|the babysitters club|dork diaries|the wild robot|percy jackson|keeper of the lost cities", re.I)
 MIN_PAGES = 60                   # picture books and novelty booklets are shorter than this
+# Cheap smut: reader tags that mark erotica / dark-mafia-bully romance (rom-coms are not tagged this way). 2005+ only, so classics stay.
+SMUT_RE = re.compile(r"\berotica\b|erotic (fiction|romance|stories|novel)|\bsmut|steamy|\bbdsm\b|dark romance|mafia romance|bully romance|billionaire romance|reverse harem|why choose|stepbrother|step-brother|omegaverse|monster romance|stalker romance|possessive hero|alpha male|\btaboo\b", re.I)
+SMUT_FROM_YEAR = 2005
 JUNK_TITLE_RE = re.compile(r'[{}$#~⨊]|contact center|coupon', re.I)
 SKIP_RE = re.compile(r'textbook|study guide|coloring book|board book|workbook|examination|test prep|dictionar|calendar|coupon|ncert|neet|jee main|'
                      r'juvenile|picture book|children|early reader|chapter book|middle grade|beginning reader|read-aloud|nursery', re.I)
@@ -207,6 +210,7 @@ for i, (key, doc) in enumerate(docs.items()):
     if SKIP_RE.search(' | '.join(subjects)) or not doc.get('title'): skipped += 1; continue
     if KIDS_TITLE_RE.search(doc.get('title') or '') or (doc.get('number_of_pages_median') and doc['number_of_pages_median'] < MIN_PAGES): skipped += 1; continue
     year = doc.get('first_publish_year') or 0
+    if year >= SMUT_FROM_YEAR and SMUT_RE.search(' | '.join(subjects)): skipped += 1; continue
     if (doc.get('ratings_count') or 0) < min_ratings_for_year(year) or (doc.get('ratings_average') or 0) < min_rating_for_year(year): skipped += 1; continue
     prev = old.get(key)
     desc = (prev or {}).get('overview')
