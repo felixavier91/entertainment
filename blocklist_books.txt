@@ -1,2 +1,1 @@
-# One title per line (case-insensitive, matched against the start of the title). Books the rules miss but Felix does not want.
-Half His Age
+# One title per line (case-insensitive, matched against the start of the title). Empty on purpose: Felix prefers rules over one-offs.
