@@ -110,9 +110,9 @@
                 transform: none !important;
             }
             
-            /* Push cards container down */
+            /* Push cards container down (below the fixed filter panel) */
             .container > div:last-child {
-                margin-top: 250px;
+                margin-top: 395px;
             }
             
             /* Collapse button - default hidden */
@@ -158,7 +158,7 @@
                 }
                 
                 .container .filters-collapsed ~ div:last-child {
-                    margin-top: 60px !important;
+                    margin-top: 118px !important;
                 }
             }
             
@@ -325,9 +325,28 @@
                 display: none !important;
             }
             
+            /* Phones: two columns, poster height follows the width (four cards per screen instead of one) */
             #cardsContainer {
-                padding: 10px;
+                padding: 6px;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 8px !important;
             }
+            .movie-card img, .movie-card > div:first-child { height: auto !important; aspect-ratio: 2 / 3; }
+            .movie-card > div:first-child { min-height: 0 !important; }
+            .movie-card .game-caption { padding: 40px 8px 8px !important; }
+            .movie-card .game-caption > div:first-child { font-size: 13px !important; padding-right: 62px !important; }
+            .movie-card .game-caption > div:last-child { font-size: 10px !important; }
+            .movie-card > div[style*="bottom: 8px; right: 8px"] { padding: 5px 8px !important; font-size: 12px !important; border-radius: 7px !important; bottom: 6px !important; right: 6px !important; }
+            .movie-card .shot-nav { width: 26px !important; height: 34px !important; font-size: 18px !important; }
+            .movie-card .shot-count { font-size: 10px !important; padding: 2px 6px !important; }
+            .card-overlay { padding: 10px !important; font-size: 11px !important; }
+            .card-overlay h3 { font-size: 14px !important; margin-bottom: 6px !important; }
+            .card-overlay p { font-size: 11px !important; line-height: 1.4 !important; margin-bottom: 6px !important; }
+            .card-overlay > div { font-size: 11px !important; line-height: 1.5 !important; }
+            .card-overlay .link-row a { padding: 3px 7px !important; font-size: 11px !important; }
+            .card-overlay .taste button { padding: 4px 7px !important; font-size: 11px !important; }
+            .desc-item h2 { font-size: 15px; }
+            .desc-item p { font-size: 14px; }
             
             /* No overlay needed - cards visible below */
             .overlay {

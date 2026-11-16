@@ -81,6 +81,7 @@ MIN_PAGES = 60                   # picture books and novelty booklets are shorte
 # Cheap smut: reader tags that mark erotica / dark-mafia-bully romance (rom-coms are not tagged this way). 2005+ only, so classics stay.
 SMUT_RE = re.compile(r"\berotica\b|erotic (fiction|romance|stories|novel)|\bsmut|steamy|\bbdsm\b|dark romance|mafia romance|bully romance|billionaire romance|reverse harem|why choose|stepbrother|step-brother|omegaverse|monster romance|stalker romance|possessive hero|alpha male|\btaboo\b", re.I)
 SMUT_FROM_YEAR = 2005
+BLOCKLIST = [l.strip().lower() for l in open('blocklist_books.txt', encoding='utf-8') if l.strip() and not l.startswith('#')] if os.path.exists('blocklist_books.txt') else []
 JUNK_TITLE_RE = re.compile(r'[{}$#~⨊]|contact center|coupon', re.I)
 SKIP_RE = re.compile(r'textbook|study guide|coloring book|board book|workbook|examination|test prep|dictionar|calendar|coupon|ncert|neet|jee main|'
                      r'juvenile|picture book|children|early reader|chapter book|middle grade|beginning reader|read-aloud|nursery', re.I)
@@ -214,6 +215,7 @@ books, skipped, fetched, wiki = [], 0, 0, 0
 for i, (key, doc) in enumerate(docs.items()):
     subjects = doc.get('subject') or []
     if SKIP_RE.search(' | '.join(subjects)) or not doc.get('title'): skipped += 1; continue
+    if any((doc.get('title') or '').lower().startswith(t) for t in BLOCKLIST): skipped += 1; continue
     if KIDS_TITLE_RE.search(doc.get('title') or '') or (doc.get('number_of_pages_median') and doc['number_of_pages_median'] < MIN_PAGES): skipped += 1; continue
     year = doc.get('first_publish_year') or 0
     if year >= SMUT_FROM_YEAR and (SMUT_RE.search(' | '.join(subjects)) or (doc.get('author_key') or [None])[0] in smut_authors): skipped += 1; continue

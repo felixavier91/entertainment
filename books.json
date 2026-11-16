@@ -31,32 +31,6 @@
    "ia": null
   },
   {
-   "id": "OL44829733W",
-   "title": "Half His Age: a novel",
-   "title_short": "Half His Age",
-   "subtitle": "a novel",
-   "title_original": null,
-   "author": "Jennette McCurdy",
-   "author_key": "OL10032819A",
-   "overview": "From the #1 New York Times bestselling author of I’m Glad My Mom Died comes a sad, funny, thrilling novel about sex, consumerism, class, desire, loneliness, the internet, rage, intimacy, power, and the (oftentimes misguided) lengths we’ll go to in order to get what we want. Waldo is ravenous. Horny. Blunt. Naive. Wise. Impulsive. Lonely. Angry. Forceful. Hurting. Perceptive. Endlessly wanting. And the thing she wants most of all: Mr. Korgy, her creative writing teacher with the wife and the kid and the mortgage and the bills, with the dead dreams and the atrophied looks and the growing paunch. She doesn’t know why she wants him. Is it his passion? His life experience? The fact that he knows books and films and things that she doesn’t? Or is it purer than that, rooted in their unlikely connection, their kindred spirits, the similar filter with which they each take in the world around them? Or, perhaps, it’s just enough that he sees her when no one else does. Startlingly perceptive, mordantly funny, and keenly poignant, Half His Age is a rich character study of a yearning seventeen-year-old who disregards all obstacles—or attempts to overcome them—in her effort to be seen, to be desired, to be loved.",
-   "desc_checked": 2026,
-   "cover_id": 15166163,
-   "year": 2026,
-   "release_date": "2026-01-20",
-   "rating": 4.0,
-   "ratings_count": 3,
-   "readers": 21,
-   "want_to_read": 16,
-   "already_read": 5,
-   "pages": 288,
-   "editions": 3,
-   "genres": "N/A",
-   "subjects_full": [],
-   "type": "fiction",
-   "ebook": "no_ebook",
-   "ia": null
-  },
-  {
    "id": "OL42542598W",
    "title": "The Secret of Secrets",
    "title_short": "The Secret of Secrets",
@@ -65690,11 +65664,11 @@
   }
  ],
  "metadata": {
-  "generated_at": "2026-11-15T20:47:15.325454",
+  "generated_at": "2026-11-15T20:50:19.631992",
   "start_year": 1990,
   "end_year": 2026,
-  "total_books": 1508,
-  "fiction": 1283,
+  "total_books": 1507,
+  "fiction": 1282,
   "nonfiction": 225,
   "source": "Open Library (openlibrary.org) + Wikipedia for missing descriptions"
  }
