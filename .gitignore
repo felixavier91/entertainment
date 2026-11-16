@@ -1,4 +1,4 @@
-cache/
+cache/*
 cluster_report_*.json
 embeddings.npy
 embeddings_*.npy
