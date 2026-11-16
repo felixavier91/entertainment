@@ -33,7 +33,7 @@ which list is shown; sort, genre, year and keyword filters work the same way for
 
 | Path | What it is |
 |---|---|
-| `index.html` | Poster grid with the filter panel. Movies/TV cards unchanged; `mediaCard()` renders book and album cards (badge = Borrow / Read free for books, ▶ Preview for albums) |
+| `index.html` | Poster grid with one sticky filter bar across the top (switch, reset, medium, sort, genre, themes/subgenres, period, keywords). The earlier left-hand panel layout is tagged `layout-sidebar`: `git checkout layout-sidebar -- index.html` brings it back. Movies/TV cards unchanged; `mediaCard()` renders book and album cards (badge = Borrow / Read free for books, ▶ Preview for albums) |
 | `plots.html` | Text search over plots, book blurbs, album notes and track lists. `?q=heist&type=book` pre-fills |
 | `themes.html` | Themes + "For me" per medium (🎬 Movies & Shows · 📚 Books · 🎵 Music switch at the top). Hash routes: `#books/t=3`, `#music/me`; no prefix = movies |
 | `fetch_data.py` | TMDB fetcher → `data.json` (unchanged) |
