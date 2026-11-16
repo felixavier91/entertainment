@@ -103,7 +103,15 @@ if os.path.exists('music.json'):
             if a.get('wiki_checked') or (a.get('overview') or '').strip(): old_desc[str(a['id'])] = a.get('overview') or ''
     except Exception as e:
         print('could not read old music.json:', e)
-print(f'🎵 Deezer fetch, {START_YEAR}–{CURRENT_YEAR}; {len(cache)} albums cached, {len(old_desc)} descriptions known\n')
+# Enrichment that must survive without the big crawl cache (it is committed, the crawl cache is not):
+# original release dates per album, subgenres per artist, Spotify ids. Loaded into the caches here, written back at the end.
+ENRICH = 'cache/enrichment.json'
+enrich = json.load(open(ENRICH, encoding='utf-8')) if os.path.exists(ENRICH) else {'albums': {}, 'artists': {}}
+for aid, e in enrich.get('albums', {}).items():
+    if aid in cache:
+        for k in ('orig', 'spotify'):
+            if k in e and k not in cache[aid]: cache[aid][k] = e[k]
+print(f'🎵 Deezer fetch, {START_YEAR}–{CURRENT_YEAR}; {len(cache)} albums cached, {len(enrich.get("albums", {}))} enriched, {len(old_desc)} descriptions known\n')
 
 # ============= 1. GENRES + SEEDS =============
 genres = {g['id']: g['name'] for g in (dz('/genre') or {}).get('data', []) if g['id'] != 0}
@@ -126,6 +134,9 @@ print(f'seeds: {len(artists)} artists, {len(seed_albums)} charting albums ({call
 # ============= 2. WALK RELATED ARTISTS (biggest first) =============
 # artists found in earlier runs keep their place so the corpus stays stable
 known = json.load(open('cache/artists.json')) if os.path.exists('cache/artists.json') else {}
+for art_id, e in enrich.get('artists', {}).items():
+    known.setdefault(art_id, {'name': e.get('name', ''), 'fans': e.get('fans', 0), 'genres': []})
+    if 'mbtags' in e and 'mbtags' not in known[art_id]: known[art_id]['mbtags'] = e['mbtags']
 for aid, e in known.items():
     if int(aid) not in artists: artists[int(aid)] = {'name': e['name'], 'fans': e['fans'], 'genres': set(e.get('genres', []))}
 explored = set()
@@ -448,6 +459,16 @@ for n, aid in enumerate(kept.values()):
         'link': f'https://www.deezer.com/album/{aid}',
         'wiki_checked': TODAY if checked else None,
     })
+
+# write the enrichment file: everything learned about kept albums/artists that is not re-derivable from Deezer
+enrich_out = {'albums': {}, 'artists': {}}
+for aid in kept.values():
+    c = cache[str(aid)]; e = {k: c[k] for k in ('orig', 'spotify') if k in c}
+    if e: enrich_out['albums'][str(aid)] = e
+for aid in kept.values():
+    art_id = str(candidates[aid]['_artist']['id']); t = artist_tags.get(art_id, {})
+    if 'mbtags' in t: enrich_out['artists'][art_id] = {'name': t.get('name', ''), 'fans': t.get('fans', 0), 'mbtags': t['mbtags']}
+json.dump(enrich_out, open(ENRICH, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
 
 albums.sort(key=lambda a: a['release_date'], reverse=True)
 meta = {

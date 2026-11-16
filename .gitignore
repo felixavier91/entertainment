@@ -9,3 +9,4 @@ fetch.log
 *.log
 __pycache__/
 .venv/
+!cache/enrichment.json

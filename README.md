@@ -19,7 +19,7 @@ fetch_data.py   (TMDB, needs key)     data.json  (movies + tv_shows)      index.
 fetch_books.py  (Open Library)        books.json (books)                  plots.html   full-text search
 fetch_music.py  (Deezer + Wikipedia)  music.json (albums + EPs)           themes.html  themes + "For me"
 fetch_games.py  (RAWG, needs key)     games.json (video games)
-                                      cache/ (Deezer crawl cache: Actions cache, not git)
+                                      cache/ (Deezer crawl cache: Actions cache, not git) + cache/enrichment.json (dates, subgenres: committed)
 refresh_media_themes.py books|music|games   themes_<m>.json (+ labels/centroids/embeddings)
 
 ROG laptop (hourly systemd timer)
@@ -110,6 +110,8 @@ Thresholds and the genre mapping are at the top of the script.
 6b. Subgenres: MusicBrainz artist tags filtered to MusicBrainz's genre list, top 5 per artist, cached in
    `cache/artists.json` (`mbtags`), `TAGS_BUDGET_MIN` per run (default 15). Shown as `subgenres` on each album; the
    page's second dropdown lists them for the chosen genre.
+6d. `cache/enrichment.json` (committed, small): original dates per album, subgenres per artist, Spotify ids. Loaded at
+   start, written at the end, so GitHub runs and local runs share what was already looked up and only query what is new.
 6c. Spotify album ids (optional, `SPOTIFY_CLIENT_ID/SECRET`): one search per album, cached (`spotify`), so the card
    opens the album page directly.
 7. (Off by default.) Wikipedia album notes: `WIKI_BUDGET_MIN=25 python fetch_music.py` spends up to 25 min per run on
