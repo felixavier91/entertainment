@@ -1233,10 +1233,13 @@
             const browser = (name, href) => name === 'Chrome'
                 ? `<a href="${href}" target="_blank" rel="noopener" title="Google this in Chrome" style="background: #fff; color: #202124; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center;">${CHROME_ICON}Chrome</a>`
                 : chipLink(href, '🦁 Brave', '#fb542b');
+            // Rivestream: its search box can't be prefilled from the URL, so open the title's own page (TMDB id)
+            const rive = (it.type === 'movie' || it.type === 'tv') && it.id
+                ? chipLink(`https://rivestream.xyz/detail?type=${it.type}&id=${it.id}`, '▶ Rivestream', '#7b2ff7') : '';
             const platform = platformLinks(it);
             return `<div class="link-row" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 10px;">` +
                 platform.join('') + (platform.length ? `<span style="width: 1px; height: 18px; background: rgba(255,255,255,0.25); margin: 0 2px;"></span>` : '') +
-                ['Brave', 'Chrome'].map(n => browser(n, hrefs[n])).join('') + '</div>';
+                rive + ['Brave', 'Chrome'].map(n => browser(n, hrefs[n])).join('') + '</div>';
         }
         
         document.addEventListener('click', e => {
