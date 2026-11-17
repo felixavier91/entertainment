@@ -1639,6 +1639,17 @@
                 `;
             }).join('');
             
+            // Yellow NEW tag, top left (see markNewness)
+            if (newKeys.size) {
+                const cardEls = container.querySelectorAll('.movie-card');
+                allItems.forEach((it, i) => {
+                    const k = itemKey(it), el = cardEls[i];
+                    if (!el || !newKeys.has(k)) return;
+                    el.dataset.newKey = k;
+                    el.insertAdjacentHTML('beforeend', '<div class="new-tag" style="position: absolute; top: 8px; left: 8px; z-index: 2; background: #FFD60A; color: #111; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 800; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(0,0,0,0.5); pointer-events: none;">NEW</div>');
+                });
+            }
+
             // Add click/tap toggle functionality
             document.querySelectorAll('.movie-card').forEach(card => {
                 const overlay = card.querySelector('.card-overlay');
@@ -1913,6 +1924,34 @@
 
         let allLoadedData = { movies: [], tv: [] }; // Store all loaded data globally
         let rawJsonData = null; // Store the raw JSON data
+
+        // ---- NEW tags: anything not in this browser's "seen" list on page load gets a yellow NEW tag.
+        // The whole current list is saved as seen right away, so next visit only newer additions are tagged;
+        // hovering (or tapping) a card clears its tag for this visit too. A medium seen for the first time is tagged silently.
+        const newKeys = new Set();
+        function markNewness(raw) {
+            const cur = { movie: raw.movies, tv: raw.tv, book: raw.books, music: raw.music, game: raw.games };
+            let seen = null;
+            try { seen = JSON.parse(localStorage.getItem('seenIds') || 'null'); } catch (e) {}
+            seen = seen && typeof seen === 'object' ? seen : {};
+            for (const [t, list] of Object.entries(cur)) {
+                const ids = (list || []).map(x => String(x.id));
+                if (!ids.length) continue;              // file failed to load: leave this medium alone
+                const old = seen[t];
+                if (old) { const had = new Set(old); ids.forEach(id => { if (!had.has(id)) newKeys.add(t + ':' + id); }); }
+                seen[t] = [...new Set([...(old || []), ...ids])];
+            }
+            try { localStorage.setItem('seenIds', JSON.stringify(seen)); } catch (e) {}
+        }
+        const clearNew = e => {
+            const card = e.target.closest && e.target.closest('.movie-card[data-new-key]');
+            if (!card) return;
+            newKeys.delete(card.dataset.newKey);
+            card.removeAttribute('data-new-key');
+            const tag = card.querySelector('.new-tag'); if (tag) tag.remove();
+        };
+        document.addEventListener('mouseover', clearNew);
+        document.addEventListener('touchstart', clearNew, { passive: true });
         let currentSortOrder = 'recent'; // Track current sort order
         let currentContentType = 'movies'; // Track current content type (movies or tv)
         let selectedGenre = ''; // Track selected genre (empty = all genres)
@@ -2004,6 +2043,7 @@
                         music: musicRes.status === 'fulfilled' ? (musicRes.value.albums || []) : [],
                         games: gamesRes.status === 'fulfilled' ? (gamesRes.value.games || []) : []
                     };
+                    markNewness(rawJsonData);
                     
                     // Populate genre dropdown with unique genres
                     populateGenreDropdown();
