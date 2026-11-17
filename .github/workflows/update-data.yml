@@ -59,7 +59,7 @@ jobs:
           key: deezer-cache-${{ github.run_id }}
           restore-keys: deezer-cache-
       
-      # Music refreshes once a day (the 00:00 UTC run) or on manual runs: music.json is 13 MB and fan counts
+      # Music refreshes once a day (first scheduled run 20+ h after the last one; GitHub starts cron runs at random hours) or on manual runs: music.json is 13 MB and fan counts
       # move every run, so committing it four times a day would bloat the repo for nothing.
       - name: Fetch Deezer data (music)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -67,7 +67,7 @@ jobs:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(date -u +%H)" != "00" ]; then echo "not the daily music run"; exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && python -c "import json,sys,datetime as d; t=d.datetime.fromisoformat(json.load(open('music.json'))['metadata']['generated_at']); sys.exit(0 if d.datetime.utcnow()-t < d.timedelta(hours=20) else 1)"; then echo "music refreshed under 20 h ago"; exit 0; fi
           python fetch_music.py
       
       - name: Save Deezer cache
@@ -77,7 +77,7 @@ jobs:
           path: cache
           key: deezer-cache-${{ github.run_id }}
       
-      # RAWG's free tier is 20,000 requests a month, so games refresh once a day (the 00:00 UTC run) or on manual runs.
+      # RAWG's free tier is 20,000 requests a month, so games refresh once a day (first scheduled run 20+ h after the last one) or on manual runs.
       # Skipped silently until the RAWG_KEY secret exists.
       - name: Fetch RAWG data (games)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -85,7 +85,7 @@ jobs:
           RAWG_KEY: ${{ secrets.RAWG_KEY }}
         run: |
           if [ -z "$RAWG_KEY" ]; then echo "RAWG_KEY secret not set; skipping games"; exit 0; fi
-          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(date -u +%H)" != "00" ]; then echo "not the daily games run"; exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && python -c "import json,sys,datetime as d; t=d.datetime.fromisoformat(json.load(open('games.json'))['metadata']['generated_at']); sys.exit(0 if d.datetime.utcnow()-t < d.timedelta(hours=20) else 1)"; then echo "games refreshed under 20 h ago"; exit 0; fi
           python fetch_games.py
       
       # Themes (all media) are refreshed on the ROG by refresh_themes.sh with the local model; nothing to do here.
