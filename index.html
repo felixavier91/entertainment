@@ -1925,28 +1925,32 @@
         let allLoadedData = { movies: [], tv: [] }; // Store all loaded data globally
         let rawJsonData = null; // Store the raw JSON data
 
-        // ---- NEW tags: anything not in this browser's "seen" list on page load gets a yellow NEW tag.
-        // The whole current list is saved as seen right away, so next visit only newer additions are tagged;
-        // hovering (or tapping) a card clears its tag for this visit too. A medium seen for the first time is tagged silently.
+        // ---- NEW tags: the first visit in a browser records everything as seen (no tags). After that, any item
+        // not in this browser's seen list gets a yellow NEW tag, and keeps it on every visit until the card is
+        // hovered (or tapped) — only then is it added to the seen list. A medium seen for the first time is recorded silently.
         const newKeys = new Set();
+        let seenIds = {}, seenSaveTimer = null;
+        const saveSeen = () => { clearTimeout(seenSaveTimer); seenSaveTimer = setTimeout(() => { try { localStorage.setItem('seenIds', JSON.stringify(seenIds)); } catch (e) {} }, 400); };
         function markNewness(raw) {
             const cur = { movie: raw.movies, tv: raw.tv, book: raw.books, music: raw.music, game: raw.games };
-            let seen = null;
-            try { seen = JSON.parse(localStorage.getItem('seenIds') || 'null'); } catch (e) {}
-            seen = seen && typeof seen === 'object' ? seen : {};
+            try { seenIds = JSON.parse(localStorage.getItem('seenIds') || 'null'); } catch (e) {}
+            seenIds = seenIds && typeof seenIds === 'object' ? seenIds : {};
             for (const [t, list] of Object.entries(cur)) {
                 const ids = (list || []).map(x => String(x.id));
                 if (!ids.length) continue;              // file failed to load: leave this medium alone
-                const old = seen[t];
-                if (old) { const had = new Set(old); ids.forEach(id => { if (!had.has(id)) newKeys.add(t + ':' + id); }); }
-                seen[t] = [...new Set([...(old || []), ...ids])];
+                if (!seenIds[t]) { seenIds[t] = ids; continue; }
+                const had = new Set(seenIds[t]);
+                ids.forEach(id => { if (!had.has(id)) newKeys.add(t + ':' + id); });
             }
-            try { localStorage.setItem('seenIds', JSON.stringify(seen)); } catch (e) {}
+            saveSeen();
         }
         const clearNew = e => {
             const card = e.target.closest && e.target.closest('.movie-card[data-new-key]');
             if (!card) return;
-            newKeys.delete(card.dataset.newKey);
+            const k = card.dataset.newKey, i = k.indexOf(':');
+            newKeys.delete(k);
+            (seenIds[k.slice(0, i)] = seenIds[k.slice(0, i)] || []).push(k.slice(i + 1));
+            saveSeen();
             card.removeAttribute('data-new-key');
             const tag = card.querySelector('.new-tag'); if (tag) tag.remove();
         };
