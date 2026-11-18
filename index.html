@@ -1192,10 +1192,10 @@
         function platformLinks(it) {
             const q = encodeURIComponent(it.title + ' ' + (it.author || it.artist || ''));
             if (it.type === 'book') return [chipLink(`https://www.amazon.com/s?k=${q}&i=digital-text`, 'Kindle', '#FF9900')];   // Kindle store search
-            // Spotify: the album page when we have its id, else a field-filtered search that narrows to that one album.
-            // Computers open it on the Albums tab (/albums). Phones/tablets must not get that suffix: the Spotify app
-            // takes the last path part as the search text (it typed "albums" on the iPad).
-            if (it.type === 'music') return [chipLink(it.spotify ? `https://open.spotify.com/album/${it.spotify}` : `https://open.spotify.com/search/${encodeURIComponent(`album:${it.title} artist:${it.artist}`)}${matchMedia('(pointer: coarse)').matches ? '' : '/albums'}`, 'Spotify', '#1DB954')];
+            // Spotify: the album page when we have its id, else a field-filtered search on the Albums tab that narrows to
+            // that one album. The search goes through go.html: tapped directly, iPad/iPhone hand it to the Spotify app,
+            // which ignores the search text; a scripted redirect stays in the browser where the page works.
+            if (it.type === 'music') return [chipLink(it.spotify ? `https://open.spotify.com/album/${it.spotify}` : `go.html#${encodeURIComponent(`https://open.spotify.com/search/${encodeURIComponent(`album:${it.title} artist:${it.artist}`)}/albums`)}`, 'Spotify', '#1DB954')];
             if (it.type === 'game') {
                 const steamStore = (it.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
                 const out = [chipLink(steamStore ? steamStore.url : `https://store.steampowered.com/search/?term=${encodeURIComponent(it.title)}`, 'Steam', '#1b2838')];
