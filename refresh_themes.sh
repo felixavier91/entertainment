@@ -7,6 +7,8 @@ git pull -q --rebase --autostash
 files=(); msg=()
 out=$(.venv/bin/python refresh_themes.py); echo "movies: $out"
 if [[ $out == changed* ]]; then files+=(themes.json labels.json); msg+=("movies ${out#changed: }"); fi
+out=$(python3 stamp_added.py); echo "added: $out"       # first-seen dates for the "Recently Added" sort
+if [[ $out == changed* ]]; then git add added.json; files+=(added.json); msg+=("added ${out#changed: }"); fi
 for m in books games; do                      # music has subgenres (MusicBrainz tags) instead of themes
     [[ -f $m.json && -f centroids_$m.npy && -f theme_names_$m.json ]] || continue   # themes not built for this medium yet
     out=$(.venv/bin/python refresh_media_themes.py "$m"); echo "$m: $out"
