@@ -1374,6 +1374,17 @@
             renderDescMore();
         }
         
+        const CARD_PAGE = 60;
+        function cardsMoreButton() {
+            let b = document.getElementById('cardsMore');
+            if (!b) {
+                b = document.createElement('button');
+                b.id = 'cardsMore';
+                b.style.cssText = 'display: none; margin: 24px auto 40px; padding: 16px 40px; font-size: 18px; font-weight: 700; color: #fff; background: #222; border: 1px solid #555; border-radius: 12px; cursor: pointer;';
+                document.getElementById('cardsContainer').insertAdjacentElement('afterend', b);
+            }
+            return b;
+        }
         function displayCards(data) {
             // Scroll to top instantly when filter changes
             window.scrollTo(0, 0);
@@ -1446,6 +1457,8 @@
             
             if (selectedTheme === 'forme') allItems = picksForMe(allItems); else whyFor = {};
             
+            const moreBtn = cardsMoreButton();
+            moreBtn.style.display = 'none';
             if (descOnly) return renderDescriptions(allItems);
             container.style.display = 'grid';
             
@@ -1454,7 +1467,7 @@
                 return;
             }
             
-            container.innerHTML = allItems.map(item => {
+            const cardHtml = item => {
                 if (item.type === 'book' || item.type === 'music' || item.type === 'game') return mediaCard(item);
                 const posterUrl = item.poster_path 
                     ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
@@ -1637,52 +1650,53 @@
                         </div>
                     </div>
                 `;
-            }).join('');
-            
-            // Yellow NEW tag, top left (see markNewness)
-            if (newKeys.size) {
-                const cardEls = container.querySelectorAll('.movie-card');
-                allItems.forEach((it, i) => {
-                    const k = itemKey(it), el = cardEls[i];
-                    if (!el || !newKeys.has(k)) return;
-                    el.dataset.newKey = k;
-                    el.insertAdjacentHTML('beforeend', '<div class="new-tag" style="position: absolute; top: 8px; left: 8px; z-index: 2; background: #FFD60A; color: #111; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 800; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(0,0,0,0.5); pointer-events: none;">NEW</div>');
-                });
-            }
+            };
 
-            // Add click/tap toggle functionality
-            document.querySelectorAll('.movie-card').forEach(card => {
-                const overlay = card.querySelector('.card-overlay');
-                let isOverlayVisible = false;
-                
-                // Click/tap to toggle overlay
-                card.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (e.target.closest('.preview-btn') || e.target.closest('a') || e.target.closest('.taste') || e.target.closest('.shot-nav')) return;
-                    
-                    if (isOverlayVisible) {
-                        overlay.style.opacity = '0';
-                        overlay.style.pointerEvents = 'none';
-                        overlay.style.visibility = 'hidden';
-                        overlay.style.overflowY = 'hidden';
-                        isOverlayVisible = false;
-                    } else {
-                        // Close any other open overlays first
+            // Cards go in pages: only the first CARD_PAGE are built, the rest wait for the "Load more" button
+            // (thousands of posters at once made phones crawl).
+            container.innerHTML = '';
+            let shown = 0;
+            const renderMore = () => {
+                const slice = allItems.slice(shown, shown + CARD_PAGE);
+                const first = container.children.length;
+                container.insertAdjacentHTML('beforeend', slice.map(cardHtml).join(''));
+                const cardEls = Array.from(container.children).slice(first);
+                shown += slice.length;
+                const left = allItems.length - shown;
+                moreBtn.style.display = left > 0 ? 'block' : 'none';
+                moreBtn.textContent = `Load more (${left.toLocaleString()} left)`;
+
+                cardEls.forEach((card, i) => {
+                    // Yellow NEW tag, top left (see markNewness)
+                    const k = itemKey(slice[i]);
+                    if (newKeys.has(k)) {
+                        card.dataset.newKey = k;
+                        card.insertAdjacentHTML('beforeend', '<div class="new-tag" style="position: absolute; top: 8px; left: 8px; z-index: 2; background: #FFD60A; color: #111; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 800; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(0,0,0,0.5); pointer-events: none;">NEW</div>');
+                    }
+
+                    // Click/tap to toggle overlay
+                    const overlay = card.querySelector('.card-overlay');
+                    card.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (e.target.closest('.preview-btn') || e.target.closest('a') || e.target.closest('.taste') || e.target.closest('.shot-nav')) return;
+                        const open = overlay.style.visibility === 'visible';
                         document.querySelectorAll('.card-overlay').forEach(o => {
                             o.style.opacity = '0';
                             o.style.pointerEvents = 'none';
                             o.style.visibility = 'hidden';
                             o.style.overflowY = 'hidden';
                         });
-                        
-                        overlay.style.opacity = '1';
-                        overlay.style.pointerEvents = 'auto';
-                        overlay.style.visibility = 'visible';
-                        overlay.style.overflowY = 'auto';
-                        isOverlayVisible = true;
-                    }
+                        if (!open) {
+                            overlay.style.opacity = '1';
+                            overlay.style.pointerEvents = 'auto';
+                            overlay.style.visibility = 'visible';
+                            overlay.style.overflowY = 'auto';
+                        }
+                    });
                 });
-            });
+            };
+            moreBtn.onclick = renderMore;
+            renderMore();
             
             // Close overlay when clicking outside
             document.addEventListener('click', (e) => {
@@ -1955,7 +1969,7 @@
             const tag = card.querySelector('.new-tag'); if (tag) tag.remove();
         };
         document.addEventListener('mouseover', clearNew);
-        document.addEventListener('touchstart', clearNew, { passive: true });
+        document.addEventListener('click', clearNew, true);   // a tap, not touchstart: scrolling with a finger on a card must not clear its tag
         let currentSortOrder = 'recent'; // Track current sort order
         let currentContentType = 'movies'; // Track current content type (movies or tv)
         let selectedGenre = ''; // Track selected genre (empty = all genres)
