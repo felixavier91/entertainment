@@ -1192,8 +1192,9 @@
         function platformLinks(it) {
             const q = encodeURIComponent(it.title + ' ' + (it.author || it.artist || ''));
             if (it.type === 'book') return [chipLink(`https://www.amazon.com/s?k=${q}&i=digital-text`, 'Kindle', '#FF9900')];   // Kindle store search
-            // Spotify: field-filtered search opened on the Albums tab, so the album itself is the first result
-            if (it.type === 'music') return [chipLink(it.spotify ? `https://open.spotify.com/album/${it.spotify}` : `https://open.spotify.com/search/${encodeURIComponent(`album:${it.title} artist:${it.artist}`)}/albums`, 'Spotify', '#1DB954')];
+            // Spotify: the album page when we have its id, else a plain "artist title" search. Nothing after the query in
+            // the URL: the Spotify app on iPad/iPhone takes the last path part as the search text (it typed "albums").
+            if (it.type === 'music') return [chipLink(it.spotify ? `https://open.spotify.com/album/${it.spotify}` : `https://open.spotify.com/search/${encodeURIComponent(`${it.artist} ${it.title}`)}`, 'Spotify', '#1DB954')];
             if (it.type === 'game') {
                 const steamStore = (it.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
                 const out = [chipLink(steamStore ? steamStore.url : `https://store.steampowered.com/search/?term=${encodeURIComponent(it.title)}`, 'Steam', '#1b2838')];
