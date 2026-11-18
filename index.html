@@ -1192,10 +1192,12 @@
         function platformLinks(it) {
             const q = encodeURIComponent(it.title + ' ' + (it.author || it.artist || ''));
             if (it.type === 'book') return [chipLink(`https://www.amazon.com/s?k=${q}&i=digital-text`, 'Kindle', '#FF9900')];   // Kindle store search
-            // Spotify: the album page when we have its id, else a search. Computers get the field-filtered search on the
-            // Albums tab (/albums), which shows just that album. Spotify's iPad/iPhone site reads that last "/albums" as
-            // typed search text, so there the link ends with the search itself: plain "artist title".
-            if (it.type === 'music') return [chipLink(it.spotify ? `https://open.spotify.com/album/${it.spotify}` : IS_IOS ? `https://open.spotify.com/search/${encodeURIComponent(`${it.artist} ${it.title}`)}` : `https://open.spotify.com/search/${encodeURIComponent(`album:${it.title} artist:${it.artist}`)}/albums`, 'Spotify', '#1DB954')];
+            // Spotify: the album page when we have its id, else a field-filtered search that narrows to that one album.
+            // Computers: /search/<query>/albums (Albums tab). Spotify's phone/tablet site sends /search/<query> to
+            // /search/recent and reads a trailing /albums as typed text; the form it accepts is /search/results/<query>
+            // (checked 11-18 in phone emulation: the album is the first result).
+            const spQ = encodeURIComponent(`album:${it.title} artist:${it.artist}`);
+            if (it.type === 'music') return [chipLink(it.spotify ? `https://open.spotify.com/album/${it.spotify}` : (IS_IOS || IS_ANDROID) ? `https://open.spotify.com/search/results/${spQ}` : `https://open.spotify.com/search/${spQ}/albums`, 'Spotify', '#1DB954')];
             if (it.type === 'game') {
                 const steamStore = (it.stores || []).find(st => /steam/i.test(st.name) && /store\.steampowered\.com/.test(st.url));
                 const out = [chipLink(steamStore ? steamStore.url : `https://store.steampowered.com/search/?term=${encodeURIComponent(it.title)}`, 'Steam', '#1b2838')];
