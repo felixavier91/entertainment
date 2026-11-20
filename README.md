@@ -40,6 +40,7 @@ which list is shown; sort, genre, year and keyword filters work the same way for
 | `fetch_books.py` | Open Library fetcher → `books.json` |
 | `fetch_music.py` | Deezer fetcher → `music.json` (+ `cache/`, kept in the Actions cache / locally, gitignored) |
 | `fetch_games.py` | RAWG fetcher → `games.json` |
+| `fetch_lyrics.py`, `build_lyrics_index.py`, `refresh_lyrics.sh` | Lyrics search in Music (type a line in the Keywords box): lyrics from LRCLIB into `cache/lyrics.sqlite` on the ROG (never published), turned into a word-pair hash index in `lyrics/` (no lyric text), published as the one-commit branch `lyrics-index` that the Pages workflow checks out |
 | `refresh_themes.py`, `refresh_themes.sh`, `cluster.py` | Movie/TV themes (run on the ROG with Ollama) |
 | `refresh_media_themes.py` | Book and music themes (run in Actions with fastembed) |
 | `cluster_media.py` | One-off: build the initial K themes for a medium and print a report for naming them |
@@ -53,7 +54,7 @@ which list is shown; sort, genre, year and keyword filters work the same way for
 | `TMDB_TOKEN` | `fetch_data.py` |
 | `RAWG_KEY` | `fetch_games.py` (free key from https://rawg.io/apidocs; the games step is skipped while the secret is missing) |
 | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | `fetch_music.py`, optional: direct Spotify album links (free developer app at https://developer.spotify.com/dashboard; without them the card opens a Spotify search) |
-| — | Open Library, Deezer, MusicBrainz and Wikipedia need no key |
+| — | Open Library, Deezer, MusicBrainz, Wikipedia and LRCLIB need no key |
 
 ---
 

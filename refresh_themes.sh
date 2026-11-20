@@ -14,6 +14,8 @@ for m in books games; do                      # music has subgenres (MusicBrainz
     out=$(.venv/bin/python refresh_media_themes.py "$m"); echo "$m: $out"
     if [[ $out == changed* ]]; then files+=("themes_$m.json" "labels_$m.json"); msg+=("$m ${out#changed: }"); fi
 done
-[[ ${#files[@]} -gt 0 ]] || exit 0
-git commit -q -m "Themes refresh: $(IFS='; '; echo "${msg[*]}" | cut -c1-200)" -- "${files[@]}"
-git push -q || { git pull -q --rebase --autostash && git push -q; }
+if [[ ${#files[@]} -gt 0 ]]; then
+    git commit -q -m "Themes refresh: $(IFS='; '; echo "${msg[*]}" | cut -c1-200)" -- "${files[@]}"
+    git push -q || { git pull -q --rebase --autostash && git push -q; }
+fi
+./refresh_lyrics.sh || echo "lyrics: failed"      # music: lyrics search index (can take up to 45 min while there are songs left to look up)

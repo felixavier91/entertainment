@@ -104,6 +104,14 @@ jobs:
             git push
           fi
       
+      # Lyrics search index for the music section: built on the ROG (refresh_lyrics.sh), kept as a single commit in its own branch
+      - name: Fetch lyrics index
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: lyrics-index
+          path: lyrics
+      
       - name: Setup Pages
         uses: actions/configure-pages@v4
       

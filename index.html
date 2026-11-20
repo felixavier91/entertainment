@@ -1107,7 +1107,8 @@
             } else {
                 const tracks = (item.tracks || []).slice(0, 12).map((t, i) => `${i + 1}. ${esc(t)}`).join('<br>') + ((item.tracks || []).length > 12 ? `<br>… ${item.tracks.length - 12} more` : '');
                 details = `
-                    <p style="margin: 4px 0;"><strong>Artist:</strong> ${esc(item.artist)}</p>
+                    <p style="margin: 4px 0;"><strong>Artist:</strong> ${esc(item.artist)}</p>${item.lyricTracks && item.lyricTracks.length ? `
+                    <p style="margin: 4px 0; color: #fde68a;"><strong>🎤 Lyrics match:</strong> ${esc(item.lyricTracks.join(', '))}</p>` : ''}
                     <p style="margin: 4px 0;"><strong>Released:</strong> ${fmtDate(item.releaseDate)}</p>
                     <p style="margin: 4px 0;"><strong>Type:</strong> ${item.subtype === 'ep' ? '💽 EP' : '💿 Album'}${item.explicit ? ' · 🅴 Explicit' : ''}</p>
                     <p style="margin: 4px 0;"><strong>Fans:</strong> ❤️ ${item.x ? item.x.toLocaleString() : 'N/A'} on Deezer</p>
@@ -1126,7 +1127,7 @@
             const shotData = shots.length > 1 ? ` data-shots='${esc(JSON.stringify(shots))}' data-idx="0"` : '';
             
             // Games (key art has no lettering), albums and books (cover lettering is all over the place or missing) get the name printed on the card
-            const captionSub = isGame ? `${item.year || ''}${item.developer ? ' · ' + esc(item.developer) : ''}` : isBook ? `${esc(item.author)}${item.year ? ' · ' + item.year : ''}` : `${esc(item.artist)}${item.year ? ' · ' + item.year : ''}`;
+            const captionSub = isGame ? `${item.year || ''}${item.developer ? ' · ' + esc(item.developer) : ''}` : isBook ? `${esc(item.author)}${item.year ? ' · ' + item.year : ''}` : `${esc(item.artist)}${item.year ? ' · ' + item.year : ''}${item.lyricTracks && item.lyricTracks.length ? `<div style="color: #fde68a; margin-top: 3px;">🎤 ${esc(item.lyricTracks.slice(0, 2).join(', '))}${item.lyricTracks.length > 2 ? ' +' + (item.lyricTracks.length - 2) : ''}</div>` : ''}`;
             const caption = (isGame || isBook || item.type === 'music') ? `<div class="game-caption" style="position: absolute; left: 0; right: 0; bottom: 0; padding: 70px 14px 14px; transition: opacity 0.2s; background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.55) 55%, transparent); color: #fff; pointer-events: none;"><div style="font-size: 19px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,0.9); padding-right: ${badge ? '120px' : '0'};">${esc(item.title)}</div><div style="font-size: 12px; color: #ccc; margin-top: 3px;">${captionSub}</div></div>` : '';
             return `
                 <div class="movie-card"${shotData} style="position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; background: #000;">
@@ -1343,6 +1344,7 @@
             const tail = it.type === 'music' ? (it.subgenres && it.subgenres.length ? ' · ' + esc(it.subgenres.slice(0, 3).join(', ')) : '') : (t >= 0 ? ' · ' + esc(sp.themes[t]) : '');
             return `<div class="desc-item"><h2>${esc(it.title)}<span>${it.year || ''} · ${KIND[it.type]}${by ? ' · ' + esc(by) : ''}${score ? ' · ' + score : ''}${tail}</span></h2>` +
                 (why ? `<div class="why">Because you liked ${esc(why)}</div>` : '') +
+                (it.lyricTracks && it.lyricTracks.length ? `<div class="why">🎤 Lyrics match: ${esc(it.lyricTracks.join(', '))}</div>` : '') +
                 `<div style="margin-top: 8px;">${linkRow(it)}</div>` +
                 (it.overview ? `<p>${highlight(it.overview, term)}</p>` : '') +
                 (it.tracks && it.tracks.length ? `<p class="tracks">Tracks: ${highlight(it.tracks.join(' · '), term)}</p>` : '') +
@@ -2363,6 +2365,48 @@
             }
         });
 
+        // ---- Lyrics search (music): the typed words are hashed pair by pair and looked up in lyrics/ ----
+        // The index is built on the ROG (fetch_lyrics.py + build_lyrics_index.py) and holds no lyric text, only word-pair hashes -> songs.
+        const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+        const crc32 = s => { let c = 0xFFFFFFFF; for (const b of new TextEncoder().encode(s)) c = CRC_T[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+        const lyricWords = s => s.toLowerCase().normalize('NFD').replace(/[\p{M}'’`ʼ]/gu, '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+        let lyricsMetaP = null; const lyricShardP = {};
+        let lyricHits = { term: '', map: new Map() };   // album id -> track numbers whose lyrics have the typed line
+        let lyricPending = '';
+        const lyricsMeta = () => lyricsMetaP || (lyricsMetaP = fetch('lyrics/meta.json').then(r => r.ok ? r.json() : null).catch(() => null));
+        const lyricShard = (n, v) => lyricShardP[n] || (lyricShardP[n] = fetch(`lyrics/s/${n.toString(16).padStart(3, '0')}.bin?v=${v}`)
+            .then(r => r.ok ? r.arrayBuffer() : new ArrayBuffer(0)).then(b => new Uint8Array(b)).catch(() => { delete lyricShardP[n]; return new Uint8Array(0); }));
+        async function lyricSongs(pair, v) {      // the songs that have this word pair
+            const h = crc32(pair), key = (h >>> 4) & 0xFFFF, b = await lyricShard(h >>> 20, v);
+            let i = 0;
+            const vi = () => { let n = 0, s = 0, x; do { x = b[i++]; n += (x & 127) * 2 ** s; s += 7; } while (x & 128); return n; };
+            while (i < b.length) {
+                const k = b[i] | (b[i + 1] << 8); i += 2;
+                const n = vi();
+                if (k === key) { const out = new Set(); let p = 0; for (let j = 0; j < n; j++) { p += vi(); out.add(p); } return out; }
+                if (k > key) break;
+                for (let j = 0; j < n; j++) vi();
+            }
+            return new Set();
+        }
+        async function lyricsSearch(term) {
+            const meta = await lyricsMeta();
+            const map = new Map();
+            let w = lyricWords(term);
+            if (!meta) return map;
+            for (let tries = 0; tries < 2 && w.length >= 2 && !map.size; tries++, w = w.slice(0, -1)) {   // second try without the last word: it may be half typed
+                const sets = await Promise.all(w.slice(1).map((x, i) => lyricSongs(w[i] + ' ' + x, meta.v)));
+                sets.sort((a, b) => a.size - b.size);
+                for (const s of sets[0]) {
+                    if (!sets.every(t => t.has(s))) continue;
+                    const id = meta.albums[s >>> 8];
+                    if (!map.has(id)) map.set(id, []);
+                    map.get(id).push(s & 255);
+                }
+            }
+            return map;
+        }
+
         function applyFiltersAndDisplay() {
             if (!rawJsonData) return;
             
@@ -2484,6 +2528,18 @@
             // Check if there's an active search term and reapply it
             const searchTerm = document.getElementById('searchFilter').value.toLowerCase().trim();
             let displayData = allLoadedData;
+            document.getElementById('searchFilter').placeholder = currentContentType === 'music' ? 'Keywords or lyrics…' : 'Keywords…';
+            
+            // Music: the typed line is also looked up in the lyrics index; the list is drawn again when the answer arrives
+            if (currentContentType === 'music' && lyricHits.term !== searchTerm && lyricPending !== searchTerm && lyricWords(searchTerm).length >= 2) {
+                lyricPending = searchTerm;
+                lyricsSearch(searchTerm).catch(() => new Map()).then(map => {
+                    if (lyricPending === searchTerm) lyricPending = '';
+                    if (document.getElementById('searchFilter').value.toLowerCase().trim() !== searchTerm) return;
+                    lyricHits = { term: searchTerm, map };
+                    if (map.size) applyFiltersAndDisplay();
+                });
+            }
             
             if (searchTerm) {
                 // Filter movies with search term
@@ -2536,7 +2592,12 @@
                 // Books: title, author, blurb, genres, year. Music: title, artist, notes, genres, label, track names, year.
                 const hit = (...fields) => fields.some(f => f && String(f).toLowerCase().includes(searchTerm));
                 const searchedBooks = allLoadedData.books.filter(item => hit(item.title, item.author, item.overview, item.genres, item.year));
-                const searchedMusic = allLoadedData.music.filter(item => hit(item.title, item.artist, item.overview, item.genres, item.label, (item.tracks || []).join(' | '), item.year));
+                const lyricMap = lyricHits.term === searchTerm ? lyricHits.map : null;      // albums with a song that has the typed line in its lyrics
+                const searchedMusic = allLoadedData.music.filter(item => {
+                    const lt = lyricMap && lyricMap.get(item.id);
+                    if (lt) item.lyricTracks = lt.map(i => (item.tracks || [])[i]).filter(Boolean);
+                    return lt || hit(item.title, item.artist, item.overview, item.genres, item.label, (item.tracks || []).join(' | '), item.year);
+                });
                 const searchedGames = allLoadedData.games.filter(item => hit(item.title, item.developer, item.publisher, item.overview, item.genres, item.platforms, item.year));
                 
                 displayData = { movies: searchedMovies, tv: searchedTv, books: searchedBooks, music: searchedMusic, games: searchedGames };
