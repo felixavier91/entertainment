@@ -78,9 +78,11 @@
         #mediaPanel input { width: 18px; height: 18px; accent-color: #3b82f6; flex: none; }
         /* Focus mode: one card on screen, swipe (or arrows) for the next */
         .focus-stage { display: flex; align-items: center; justify-content: center; gap: 14px; touch-action: pan-y; }
-        .focus-card { width: min(100%, 470px, calc((100dvh - 150px) * 2 / 3)); min-width: 0; }
-        .focus-card.text { width: min(100%, 760px); align-self: flex-start; }
-        .focus-card .movie-card img, .focus-card .movie-card > div:first-child { height: auto !important; aspect-ratio: 2 / 3; }
+        /* The card runs from under the bar to the bottom of the screen (--focus-h is measured in drawFocus) */
+        .focus-card { height: var(--focus-h, calc(100dvh - 110px)); width: min(100%, calc(var(--focus-h, calc(100dvh - 110px)) * 2 / 3)); min-width: 0; }
+        .focus-card.text { height: auto; width: min(100%, 760px); align-self: flex-start; }
+        .focus-card .movie-card { height: 100%; }
+        .focus-card .movie-card img, .focus-card .movie-card > div:first-child { height: 100% !important; aspect-ratio: auto !important; }
         .focus-card .movie-card > div:first-child { min-height: 0 !important; }
         .focus-card.from-right { animation: focusInR 0.18s ease-out; }
         .focus-card.from-left { animation: focusInL 0.18s ease-out; }
@@ -1414,6 +1416,7 @@
         function drawFocus(dir) {
             const container = document.getElementById('cardsContainer');
             container.style.display = 'block';
+            sizeFocus();
             const it = focusList[focusIdx], n = focusList.length;
             const anim = dir > 0 ? ' from-right' : dir < 0 ? ' from-left' : '';
             container.innerHTML =
@@ -1436,6 +1439,12 @@
             const nx = focusList[focusIdx + 1];
             if (nx && !descOnly) { const src = nx.poster_path ? `https://image.tmdb.org/t/p/w500${nx.poster_path}` : nx.poster; if (src) new Image().src = src; }
         }
+        function sizeFocus() {
+            const container = document.getElementById('cardsContainer');
+            const top = container.getBoundingClientRect().top + window.scrollY;      // where the cards start, page scrolled to the top
+            container.style.setProperty('--focus-h', Math.max(260, window.innerHeight - top - 46) + 'px');   // 46 = the counter line under the card + page padding
+        }
+        window.addEventListener('resize', () => { if (focusMode) sizeFocus(); });
         function focusStep(d) {
             if (!focusMode || !focusList.length) return;
             const i = Math.max(0, Math.min(focusList.length - 1, focusIdx + d));
