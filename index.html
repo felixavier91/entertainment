@@ -61,7 +61,35 @@
         .bar-select option { background: #2a2a2a; color: #fff; }
         .bar-input { font-weight: normal; width: 105px; }
         #itemCount { color: #999; font-size: 11px; white-space: nowrap; }
-        #descSwitch { margin-left: auto !important; }
+        #focusSwitch { margin-left: auto !important; }
+        /* Computers: a wide keyword box */
+        @media (min-width: 769px) {
+            #searchFilter { flex: 1 1 380px; width: auto; min-width: 300px; max-width: 720px; font-size: 15px; padding: 9px 16px; }
+        }
+        /* Medium: a button that opens a list of tick boxes */
+        #mediaBtn { text-align: left; white-space: nowrap; max-width: none; }
+        #mediaPanel {
+            position: fixed; z-index: 3000; background: #1f1f1f; border: 1px solid #555; border-radius: 12px;
+            padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); min-width: 170px;
+        }
+        #mediaPanel[hidden] { display: none; }
+        #mediaPanel label { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; user-select: none; }
+        #mediaPanel label:hover { background: #2f2f2f; }
+        #mediaPanel input { width: 18px; height: 18px; accent-color: #3b82f6; flex: none; }
+        /* Focus mode: one card on screen, swipe (or arrows) for the next */
+        .focus-stage { display: flex; align-items: center; justify-content: center; gap: 14px; touch-action: pan-y; }
+        .focus-card { width: min(100%, 470px, calc((100dvh - 150px) * 2 / 3)); min-width: 0; }
+        .focus-card.text { width: min(100%, 760px); align-self: flex-start; }
+        .focus-card .movie-card img, .focus-card .movie-card > div:first-child { height: auto !important; aspect-ratio: 2 / 3; }
+        .focus-card .movie-card > div:first-child { min-height: 0 !important; }
+        .focus-card.from-right { animation: focusInR 0.18s ease-out; }
+        .focus-card.from-left { animation: focusInL 0.18s ease-out; }
+        @keyframes focusInR { from { transform: translateX(40px); opacity: 0; } }
+        @keyframes focusInL { from { transform: translateX(-40px); opacity: 0; } }
+        .focus-nav { flex: none; width: 52px; height: 52px; padding: 0; border-radius: 50%; font-size: 30px; line-height: 1; background: #1a1a1a; border: 1px solid #555; color: #fff; cursor: pointer; }
+        .focus-nav:disabled { opacity: 0.25; cursor: default; }
+        .focus-count { text-align: center; color: #888; font-size: 13px; margin-top: 10px; }
+        @media (hover: none) and (pointer: coarse) { .focus-nav { display: none; } }
         
         .filter-toggle {
             display: none;
@@ -625,13 +653,14 @@
     
     <div class="container">
         <div class="controls" id="controls">
-            <select id="mediaSelect" class="bar-select" title="Medium">
-                <option value="movies">🎬 Movies</option>
-                <option value="tv">📺 TV Shows</option>
-                <option value="books">📚 Books</option>
-                <option value="music">🎵 Music</option>
-                <option value="games">🎮 Games</option>
-            </select>
+            <button type="button" id="mediaBtn" class="bar-select" title="Medium: tick any number" aria-haspopup="true" aria-expanded="false">🎞️ All media ▾</button>
+            <div id="mediaPanel" hidden>
+                <label><input type="checkbox" value="movies" checked> 🎬 Movies</label>
+                <label><input type="checkbox" value="tv" checked> 📺 TV Shows</label>
+                <label><input type="checkbox" value="books" checked> 📚 Books</label>
+                <label><input type="checkbox" value="music" checked> 🎵 Music</label>
+                <label><input type="checkbox" value="games" checked> 🎮 Games</label>
+            </div>
             <select id="sortSelect" class="bar-select" title="Sort">
                 <option value="recent">📅 Most Recent</option>
                 <option value="added">🆕 Recently Added</option>
@@ -649,6 +678,10 @@
             </select>
             <input type="text" id="searchFilter" class="bar-input" placeholder="Keywords…">
             <span id="itemCount">No items loaded</span>
+            <div class="switch" id="focusSwitch" role="switch" aria-checked="false" title="One card at a time: swipe (or use the arrow keys) for the next one" style="margin: 0;">
+                <span class="track"></span>
+                <span>Focus</span>
+            </div>
             <div class="switch" id="descSwitch" role="switch" aria-checked="false" title="Read descriptions only, no posters" style="margin: 0;">
                 <span class="track"></span>
                 <span>Description-only</span>
@@ -663,11 +696,6 @@
                 <label><input type="radio" name="sortOrder" value="added"></label>
                 <label><input type="radio" name="sortOrder" value="reviews"><span id="sortCountLabel"></span></label>
                 <label id="sortRatingLabel"><input type="radio" name="sortOrder" value="rating"></label>
-                <label><input type="radio" name="contentType" value="movies" checked></label>
-                <label><input type="radio" name="contentType" value="tv"></label>
-                <label><input type="radio" name="contentType" value="books"></label>
-                <label><input type="radio" name="contentType" value="music"></label>
-                <label><input type="radio" name="contentType" value="games"></label>
                 <select id="minYearDropdown"></select>
                 <select id="maxYearDropdown"></select>
             </div>
@@ -1169,7 +1197,10 @@
             } catch (e) { console.log('themes unavailable for', file, e); }
             return themeSpaces[file];
         }
-        const curSpace = () => THEME_FILE[currentContentType] ? (themeSpaces[THEME_FILE[currentContentType]] || null) : null;
+        // The one theme file all ticked media share (movies + shows share one), or null when they are mixed
+        const themeFileSel = () => { const f = new Set([...selectedTypes].map(t => THEME_FILE[t] || '')); return f.size === 1 ? ([...f][0] || null) : null; };
+        const curSpace = () => { const f = themeFileSel(); return f ? (themeSpaces[f] || null) : null; };
+        const TYPE_OF = { movies: 'movie', tv: 'tv', books: 'book', music: 'music', games: 'game' };
         const themeOfItem = (sp, it) => { if (!sp) return -1; const row = sp.rowOf[itemKey(it)]; return row === undefined ? -1 : sp.themeOf[row]; };
         function sim(sp, a, b) {
             let s = 0; const x = a * sp.dim, y = b * sp.dim;
@@ -1294,14 +1325,19 @@
             const sel = document.getElementById('themeFilter');
             if (!rawJsonData) return;
             if (currentContentType === 'music') { selectedTheme = ''; return populateSubgenreDropdown(); }
-            const had = THEME_FILE[currentContentType] in themeSpaces;
-            const sp = await loadThemes(THEME_FILE[currentContentType]);
+            const file = themeFileSel();
+            if (!file) {                                       // mixed media: themes are per medium, so no theme list
+                sel.style.display = 'none'; sel.value = '';
+                if (selectedTheme !== '') { selectedTheme = ''; applyFiltersAndDisplay(); }
+                return;
+            }
+            const had = file in themeSpaces;
+            const sp = await loadThemes(file);
+            if (themeFileSel() !== file) return;               // the ticks changed while the file was loading
             if (!had && sp) applyFiltersAndDisplay();          // first load of this space: show theme names on the items
-            const items = rawJsonData[currentContentType] || [];
-            const typeOf = { movies: 'movie', tv: 'tv', books: 'book', music: 'music', games: 'game' }[currentContentType];
             const counts = {}; let liked = 0;
-            if (sp) for (const raw of items) {
-                const it = { type: typeOf, id: raw.id };
+            if (sp) for (const type of selectedTypes) for (const raw of (rawJsonData[type] || [])) {
+                const it = { type: TYPE_OF[type], id: raw.id };
                 const t = themeOfItem(sp, it);
                 if (t >= 0) counts[t] = (counts[t] || 0) + 1;
                 if (taste[itemKey(it)] === 1 && t >= 0) liked++;
@@ -1357,7 +1393,7 @@
             descShown += slice.length;
         }
         window.addEventListener('scroll', () => {
-            if (descOnly && descShown < descList.length && window.innerHeight + window.scrollY >= document.body.offsetHeight - 800) renderDescMore();
+            if (descOnly && !focusMode && descShown < descList.length && window.innerHeight + window.scrollY >= document.body.offsetHeight - 800) renderDescMore();
         });
         function renderDescriptions(items) {
             const container = document.getElementById('cardsContainer');
@@ -1368,6 +1404,71 @@
             renderDescMore();
         }
         
+        // ---- Focus mode: one card at a time; swipe left/right, arrow keys or the round buttons move on ----
+        let focusList = [], focusIdx = 0, focusCardHtml = null;
+        function renderFocus(items, cardHtml) {
+            focusList = items; focusCardHtml = cardHtml; focusIdx = 0;
+            descList = []; descShown = 0;
+            drawFocus(0);
+        }
+        function drawFocus(dir) {
+            const container = document.getElementById('cardsContainer');
+            container.style.display = 'block';
+            const it = focusList[focusIdx], n = focusList.length;
+            const anim = dir > 0 ? ' from-right' : dir < 0 ? ' from-left' : '';
+            container.innerHTML =
+                `<div class="focus-stage">` +
+                    `<button class="focus-nav" data-step="-1" title="Previous (←)" ${focusIdx === 0 ? 'disabled' : ''}>‹</button>` +
+                    `<div class="focus-card${descOnly ? ' text' : ''}${anim}">${descOnly ? descItemHtml(it) : focusCardHtml(it)}</div>` +
+                    `<button class="focus-nav" data-step="1" title="Next (→)" ${focusIdx >= n - 1 ? 'disabled' : ''}>›</button>` +
+                `</div><div class="focus-count">${(focusIdx + 1).toLocaleString()} / ${n.toLocaleString()}</div>`;
+            // Tap the card for its details, same as in the grid
+            const card = container.querySelector('.movie-card'), ov = card && card.querySelector('.card-overlay');
+            if (ov) card.addEventListener('click', e => {
+                if (e.target.closest('a') || e.target.closest('.taste') || e.target.closest('.shot-nav')) return;
+                const open = ov.style.visibility === 'visible';
+                ov.style.opacity = open ? '0' : '1';
+                ov.style.pointerEvents = open ? 'none' : 'auto';
+                ov.style.visibility = open ? 'hidden' : 'visible';
+                ov.style.overflowY = open ? 'hidden' : 'auto';
+            });
+            // Have the next poster ready before the swipe
+            const nx = focusList[focusIdx + 1];
+            if (nx && !descOnly) { const src = nx.poster_path ? `https://image.tmdb.org/t/p/w500${nx.poster_path}` : nx.poster; if (src) new Image().src = src; }
+        }
+        function focusStep(d) {
+            if (!focusMode || !focusList.length) return;
+            const i = Math.max(0, Math.min(focusList.length - 1, focusIdx + d));
+            if (i === focusIdx) return;
+            focusIdx = i;
+            window.scrollTo(0, 0);
+            drawFocus(d);
+        }
+        (() => {
+            const container = document.getElementById('cardsContainer');
+            container.addEventListener('click', e => {
+                const b = e.target.closest('.focus-nav');
+                if (b) { e.stopPropagation(); focusStep(+b.dataset.step); }
+            });
+            let sx = 0, sy = 0, tracking = false;
+            container.addEventListener('touchstart', e => {
+                tracking = focusMode && e.touches.length === 1;
+                if (tracking) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+            }, { passive: true });
+            container.addEventListener('touchend', e => {
+                if (!tracking) return;
+                tracking = false;
+                const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+                if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) focusStep(dx < 0 ? 1 : -1);
+            }, { passive: true });
+            document.addEventListener('keydown', e => {
+                if (!focusMode || e.ctrlKey || e.metaKey || e.altKey) return;
+                if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target.tagName || ''))) return;
+                if (e.key === 'ArrowRight') { e.preventDefault(); focusStep(1); }
+                else if (e.key === 'ArrowLeft') { e.preventDefault(); focusStep(-1); }
+            });
+        })();
+
         const CARD_PAGE = 60;
         function cardsMoreButton() {
             let b = document.getElementById('cardsMore');
@@ -1400,7 +1501,8 @@
             if (totalBooks) parts.push(`${totalBooks} book${totalBooks !== 1 ? 's' : ''}`);
             if (totalMusic) parts.push(`${totalMusic} album${totalMusic !== 1 ? 's' : ''}`);
             if (totalGames) parts.push(`${totalGames} game${totalGames !== 1 ? 's' : ''}`);
-            itemCount.textContent = totalItems === 0 ? 'No items match filters' : 'Showing ' + parts.join(' and ');
+            itemCount.textContent = totalItems === 0 ? 'No items match filters' : parts.length > 2 ? totalItems.toLocaleString() + ' titles' : 'Showing ' + parts.join(' and ');
+            itemCount.title = parts.join(', ');
             
             // Get today's date for filtering
             const today = new Date();
@@ -1421,8 +1523,9 @@
             // Apply sorting based on currentSortOrder
             if (currentSortOrder === 'rating') {
                 // Sort by highest rating first
+                const r10 = it => it.type === 'book' ? (it.y || 0) * 2 : (it.y || 0);   // books are 0–5 stars, the rest 0–10
                 allItems.sort((a, b) => {
-                    if (b.y !== a.y) return b.y - a.y;
+                    if (r10(b) !== r10(a)) return r10(b) - r10(a);
                     return b.x - a.x; // Tie-breaker: more reviews
                 });
             } else if (currentSortOrder === 'reviews') {
@@ -1458,7 +1561,7 @@
             
             const moreBtn = cardsMoreButton();
             moreBtn.style.display = 'none';
-            if (descOnly) return renderDescriptions(allItems);
+            if (descOnly && !focusMode) return renderDescriptions(allItems);
             container.style.display = 'grid';
             
             if (allItems.length === 0) {
@@ -1650,6 +1753,8 @@
                     </div>
                 `;
             };
+
+            if (focusMode) return renderFocus(allItems, cardHtml);
 
             // Cards go in pages: only the first CARD_PAGE are built, the rest wait for the "Load more" button
             // (thousands of posters at once made phones crawl).
@@ -1935,7 +2040,9 @@
         // When each title first showed up on the site (added.json, kept by stamp_added.py): "type:id" -> "YYYY-MM-DDTHH:MM"
         let addedAt = {};
         let currentSortOrder = 'recent'; // Track current sort order
-        let currentContentType = 'movies'; // Track current content type (movies or tv)
+        const ALL_TYPES = ['movies', 'tv', 'books', 'music', 'games'];
+        let selectedTypes = new Set(ALL_TYPES);   // the ticked media; every visit starts with all of them
+        let currentContentType = 'all';           // the one ticked medium, or 'all' when several are ticked
         let selectedGenre = ''; // Track selected genre (empty = all genres)
         
         function toggleCollapse() {
@@ -1977,6 +2084,20 @@
             applyFiltersAndDisplay();
         });
         
+        // Focus switch: one card at a time (with Description-only on, one description at a time)
+        let focusMode = false;
+        try { focusMode = localStorage.getItem('focusMode') === '1'; } catch (e) {}
+        const focusSwitch = document.getElementById('focusSwitch');
+        focusSwitch.classList.toggle('on', focusMode);
+        focusSwitch.setAttribute('aria-checked', focusMode);
+        focusSwitch.addEventListener('click', () => {
+            focusMode = !focusMode;
+            try { localStorage.setItem('focusMode', focusMode ? '1' : '0'); } catch (e) {}
+            focusSwitch.classList.toggle('on', focusMode);
+            focusSwitch.setAttribute('aria-checked', focusMode);
+            applyFiltersAndDisplay();
+        });
+
         // Reset filters: sort, genre, theme, years and keywords back to default (medium and the switch stay as they are)
         document.getElementById('resetFilters').addEventListener('click', () => {
             const recent = document.querySelector('input[name="sortOrder"][value="recent"]');
@@ -1992,9 +2113,8 @@
         
         // Coming back from the text view: index.html?posters&type=books reopens that pill
         (() => {
-            const t = new URLSearchParams(location.search).get('type');
-            const radio = t && document.querySelector('input[name="contentType"][value="' + t + '"]');
-            if (radio) { radio.checked = true; currentContentType = t; document.getElementById('mediaSelect').value = t; }
+            const t = (new URLSearchParams(location.search).get('type') || '').split(',').filter(x => ALL_TYPES.includes(x));
+            if (t.length) { selectedTypes = new Set(t); currentContentType = t.length === 1 ? t[0] : 'all'; }
         })();
         
         // Auto-load on page load
@@ -2528,10 +2648,10 @@
             // Check if there's an active search term and reapply it
             const searchTerm = document.getElementById('searchFilter').value.toLowerCase().trim();
             let displayData = allLoadedData;
-            document.getElementById('searchFilter').placeholder = currentContentType === 'music' ? 'Keywords or lyrics…' : 'Keywords…';
+            document.getElementById('searchFilter').placeholder = selectedTypes.has('music') ? 'Keywords or lyrics…' : 'Keywords…';
             
             // Music: the typed line is also looked up in the lyrics index; the list is drawn again when the answer arrives
-            if (currentContentType === 'music' && lyricHits.term !== searchTerm && lyricPending !== searchTerm && lyricWords(searchTerm).length >= 2) {
+            if (selectedTypes.has('music') && lyricHits.term !== searchTerm && lyricPending !== searchTerm && lyricWords(searchTerm).length >= 2) {
                 lyricPending = searchTerm;
                 lyricsSearch(searchTerm).catch(() => new Map()).then(map => {
                     if (lyricPending === searchTerm) lyricPending = '';
@@ -2630,13 +2750,13 @@
                 };
             }
             
-            // Filter by content type (movies, tv, books or music)
+            // Keep only the ticked media
             displayData = {
-                movies: currentContentType === 'movies' ? displayData.movies : [],
-                tv: currentContentType === 'tv' ? displayData.tv : [],
-                books: currentContentType === 'books' ? displayData.books : [],
-                music: currentContentType === 'music' ? displayData.music : [],
-                games: currentContentType === 'games' ? displayData.games : []
+                movies: selectedTypes.has('movies') ? displayData.movies : [],
+                tv: selectedTypes.has('tv') ? displayData.tv : [],
+                books: selectedTypes.has('books') ? displayData.books : [],
+                music: selectedTypes.has('music') ? displayData.music : [],
+                games: selectedTypes.has('games') ? displayData.games : []
             };
             
             // Display
@@ -2692,39 +2812,40 @@
             });
         });
         
-        // Content type radio button functionality
-        document.querySelectorAll('input[name="contentType"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                currentContentType = e.target.value;
-                
-                // Update label styling
-                document.querySelectorAll('input[name="contentType"]').forEach(r => {
-                    const label = r.closest('label');
-                    if (r.checked) {
-                        label.style.background = '#3b82f6';
-                        label.style.borderColor = '#3b82f6';
-                    } else {
-                        label.style.background = '#2a2a2a';
-                        label.style.borderColor = '#555';
-                    }
-                });
-                
-                // Repopulate genre dropdown with genres for selected content type
-                populateGenreDropdown();
-                updateSortLabels();
-                
-                // Re-display with new content type filter
-                applyFiltersAndDisplay();
-                populateThemeDropdown();
-            });
+        // Medium tick boxes: any number of media at once (never none: the last tick stays)
+        const MEDIA_LABEL = { movies: '🎬 Movies', tv: '📺 TV Shows', books: '📚 Books', music: '🎵 Music', games: '🎮 Games' };
+        const mediaBtn = document.getElementById('mediaBtn'), mediaPanel = document.getElementById('mediaPanel');
+        function syncMediaMenu() {
+            mediaPanel.querySelectorAll('input').forEach(c => { c.checked = selectedTypes.has(c.value); });
+            const on = ALL_TYPES.filter(t => selectedTypes.has(t));
+            mediaBtn.textContent = (on.length === ALL_TYPES.length ? '🎞️ All media' : on.length === 1 ? MEDIA_LABEL[on[0]] : on.map(t => MEDIA_LABEL[t].split(' ')[0]).join(' ')) + ' ▾';
+        }
+        function closeMediaMenu() { mediaPanel.hidden = true; mediaBtn.setAttribute('aria-expanded', 'false'); }
+        mediaBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            if (!mediaPanel.hidden) return closeMediaMenu();
+            const r = mediaBtn.getBoundingClientRect();
+            mediaPanel.hidden = false;
+            mediaPanel.style.top = (r.bottom + 6) + 'px';
+            mediaPanel.style.left = Math.max(6, Math.min(r.left, window.innerWidth - mediaPanel.offsetWidth - 6)) + 'px';
+            mediaBtn.setAttribute('aria-expanded', 'true');
         });
-        
-        // Initialize selected content type button styling
-        document.querySelectorAll('input[name="contentType"]').forEach(r => {
-            const label = r.closest('label');
-            label.style.background = r.checked ? '#3b82f6' : '#2a2a2a';
-            label.style.borderColor = r.checked ? '#3b82f6' : '#555';
+        mediaPanel.addEventListener('click', e => e.stopPropagation());
+        document.addEventListener('click', closeMediaMenu);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMediaMenu(); });
+        document.getElementById('controls').addEventListener('scroll', closeMediaMenu);
+        mediaPanel.addEventListener('change', e => {
+            const picked = [...mediaPanel.querySelectorAll('input:checked')].map(c => c.value);
+            if (!picked.length) { e.target.checked = true; return; }
+            selectedTypes = new Set(picked);
+            currentContentType = picked.length === 1 ? picked[0] : 'all';
+            syncMediaMenu();
+            populateGenreDropdown();
+            updateSortLabels();
+            applyFiltersAndDisplay();
+            populateThemeDropdown();
         });
+        syncMediaMenu();
         updateSortLabels();
         
         // The second and third sort pills mean different things per medium
@@ -2734,7 +2855,7 @@
                 movies: '💬 Most Reviewed', tv: '💬 Most Reviewed',
                 books: '👥 Most Readers', music: '❤️ Most Fans', games: '👥 Most Players'
             };
-            sortSel.querySelector('option[value="reviews"]').textContent = labels[currentContentType] || '💬 Most Reviewed';
+            sortSel.querySelector('option[value="reviews"]').textContent = labels[currentContentType] || ([...selectedTypes].every(t => t === 'movies' || t === 'tv') ? '💬 Most Reviewed' : '👥 Most Popular');
             // Deezer has no ratings, so "Highest Rated" makes no sense for music
             const noRating = currentContentType === 'music';
             sortSel.querySelector('option[value="rating"]').hidden = noRating;
@@ -2744,15 +2865,10 @@
                 recent.checked = true;
                 recent.dispatchEvent(new Event('change'));
             }
-            document.getElementById('mediaSelect').value = currentContentType;
             sortSel.value = currentSortOrder;
         }
         
         // The bar's dropdowns drive the hidden radios the filtering code listens to
-        document.getElementById('mediaSelect').addEventListener('change', function() {
-            const r = document.querySelector('input[name="contentType"][value="' + this.value + '"]');
-            if (r) { r.checked = true; r.dispatchEvent(new Event('change')); }
-        });
         document.getElementById('sortSelect').addEventListener('change', function() {
             const r = document.querySelector('input[name="sortOrder"][value="' + this.value + '"]');
             if (r) { r.checked = true; r.dispatchEvent(new Event('change')); }
@@ -2764,8 +2880,8 @@
             
             const genreSet = new Set();
             
-            // Collect genres only from the currently selected content type
-            const dataSource = rawJsonData[currentContentType] || [];
+            // Collect genres from the ticked media
+            const dataSource = [...selectedTypes].flatMap(t => rawJsonData[t] || []);
             
             dataSource.forEach(item => {
                 if (item.genres && item.genres !== 'N/A') {
